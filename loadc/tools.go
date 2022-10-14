@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -129,4 +130,15 @@ func splitArgs(line string) (args []string) {
 	}
 
 	return args
+}
+
+func printStrings(strings []string) string {
+	var buf bytes.Buffer
+	for i, s := range strings {
+		buf.WriteString(quote(s))
+		if i < len(strings)-1 {
+			buf.WriteString(", ")
+		}
+	}
+	return buf.String()
 }

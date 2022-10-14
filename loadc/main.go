@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	"os"
 	"strconv"
@@ -33,7 +34,8 @@ var (
 )
 
 var loadc = &cobra.Command{
-	Use: "loadc",
+	Use:     "loadc",
+	Version: "v0.1.2",
 	Args: func(cmd *cobra.Command, args []string) error {
 		switch mode {
 		case ModeSql:
@@ -47,6 +49,10 @@ var loadc = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkFeatures(features); err != nil {
+			return err
+		}
+
 		switch mode {
 		case ModeSql:
 			return genSql(cmd, args)
@@ -56,6 +62,31 @@ var loadc = &cobra.Command{
 			return nil
 		}
 	},
+}
+
+var validFeatures = []string{
+	FeatureCache,
+}
+
+func checkFeatures(features []string) error {
+	if len(features) == 0 {
+		return nil
+	}
+
+Check:
+	for _, feature := range features {
+		for _, valid := range validFeatures {
+			if feature == valid {
+				continue Check
+			}
+		}
+
+		return fmt.Errorf("checkFeatures: invalid feature %s, available features are: \n\n%s\n\n",
+			quote(feature),
+			printStrings(features))
+	}
+
+	return nil
 }
 
 func init() {
