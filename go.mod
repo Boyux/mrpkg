@@ -3,6 +3,7 @@ module github.com/Boyux/mrpkg
 go 1.19
 
 require (
+	github.com/jmoiron/sqlx v1.3.5
 	github.com/shopspring/decimal v1.3.1
 	github.com/spf13/cobra v1.6.0
 	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95

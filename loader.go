@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"text/template"
 )
 
@@ -64,11 +65,17 @@ func (loader *SqlLoader) LoadTmplWithErr(id string, data any) (string, error) {
 
 var byteType = reflect.TypeOf([]byte{})
 
+type ToArgs interface {
+	ToArgs() []any
+}
+
 func MergeArgs(args ...any) []any {
 	dst := make([]any, 0, len(args))
 	for _, arg := range args {
 		rv := reflect.ValueOf(arg)
-		if rv.Kind() == reflect.Slice && rv.Type() != byteType {
+		if toArgs, ok := arg.(ToArgs); ok {
+			dst = append(dst, MergeArgs(toArgs.ToArgs()...)...)
+		} else if rv.Kind() == reflect.Slice && rv.Type() != byteType {
 			for i := 0; i < rv.Len(); i++ {
 				dst = append(dst, rv.Index(i).Interface())
 			}
@@ -77,4 +84,27 @@ func MergeArgs(args ...any) []any {
 		}
 	}
 	return dst
+}
+
+func GenBindVars(data any) string {
+	var n int
+	switch rv := reflect.ValueOf(data); rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n = int(rv.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		n = int(rv.Uint())
+	case reflect.Slice:
+		if rv.Type() == byteType {
+			n = 1
+		} else {
+			n = rv.Len()
+		}
+	}
+
+	bindVars := make([]string, n)
+	for i := 0; i < n; i++ {
+		bindVars[i] = "?"
+	}
+
+	return strings.Join(bindVars, ", ")
 }

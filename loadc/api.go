@@ -17,16 +17,10 @@ import (
 )
 
 const (
-	ExprErrorIdent = "error"
-
 	MethodInner    = "Inner"
 	MethodResponse = "Response"
 
 	FeatureCache = "api/cache"
-)
-
-var (
-	fileContent, _ = read(join(CurrentDir, CurrentFile))
 )
 
 func genApi(_ *cobra.Command, _ []string) error {
@@ -122,7 +116,7 @@ func (ctx *ApiContext) GenericsRepr(withType bool) string {
 		dst.WriteString(name)
 		if withType {
 			dst.WriteByte(' ')
-			dst.WriteString(getRepr(expr, fileContent))
+			dst.WriteString(getRepr(expr, FileContent))
 		}
 		if index < len(ctx.Generics)-1 {
 			dst.WriteString(", ")
@@ -167,7 +161,7 @@ func (ctx *ApiContext) InnerType() ast.Node {
 func inspectApi(file string, line int) (*ApiContext, error) {
 	fset := token.NewFileSet()
 
-	f, err := parser.ParseFile(fset, file, fileContent, parser.ParseComments)
+	f, err := parser.ParseFile(fset, file, FileContent, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
@@ -248,93 +242,6 @@ inspectType:
 	}, nil
 }
 
-type Method struct {
-	Meta   string
-	Header string
-	Ident  string
-	In     map[string]ast.Expr
-	Out    []ast.Expr
-}
-
-func (method *Method) SortIn() []string {
-	idents := make([]string, 0, len(method.In))
-	for k := range method.In {
-		idents = append(idents, k)
-	}
-	sort.Slice(idents, func(i, j int) bool {
-		return method.In[idents[i]].Pos() < method.In[idents[j]].Pos()
-	})
-	return idents
-}
-
-func (method *Method) MetaArgs() []string {
-	rawArgs := splitArgs(method.Meta)
-	args := make([]string, 0, len(rawArgs))
-	for i := 0; i < len(rawArgs); i++ {
-		if rawArgs[i] != "" && rawArgs[i] != " " {
-			args = append(args, rawArgs[i])
-		}
-	}
-	return args
-}
-
-func (method *Method) TmplURL() string {
-	args := method.MetaArgs()
-	return args[len(args)-1]
-}
-
-var availableMethods = []string{
-	http.MethodGet,
-	http.MethodPost,
-	http.MethodPut,
-}
-
-func (method *Method) MethodHTTP() string {
-	args := method.MetaArgs()
-	for _, httpMethod := range availableMethods {
-		if toUpper(args[len(args)-2]) == httpMethod {
-			return httpMethod
-		}
-	}
-	return ""
-}
-
-func (method *Method) ReturnSlice() bool {
-	return len(method.Out) > 1 && isSlice(method.Out[0])
-}
-
-func inspectMethod(node ast.Node) (method *Method) {
-	field := node.(*ast.Field)
-	method = new(Method)
-	if field.Doc != nil {
-		method.Meta = trimSpace(
-			trimPrefix(field.Doc.List[0].Text,
-				"//"),
-		)
-		var buffer bytes.Buffer
-		for _, header := range field.Doc.List[1:] {
-			buffer.WriteString(trimSpace(trimPrefix(header.Text, "//")))
-			buffer.WriteString("\r\n")
-		}
-		method.Header = buffer.String()
-	}
-	method.Ident = field.Names[0].Name
-	funcType := field.Type.(*ast.FuncType)
-	inParams := funcType.Params.List
-	method.In = make(map[string]ast.Expr, len(inParams))
-	for _, param := range inParams {
-		for _, name := range param.Names {
-			method.In[name.Name] = param.Type
-		}
-	}
-	outParams := funcType.Results.List
-	method.Out = make([]ast.Expr, 0, len(outParams))
-	for _, param := range outParams {
-		method.Out = append(method.Out, param.Type)
-	}
-	return method
-}
-
 func checkResponse(methods []*Method) bool {
 	for _, method := range methods {
 		if method.Ident == MethodResponse {
@@ -362,20 +269,6 @@ func hasInner(methods []*Method) bool {
 	return false
 }
 
-func checkInput(method *ast.FuncType) bool {
-	for _, param := range method.Params.List {
-		if len(param.Names) == 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func checkErrorType(expr ast.Expr) bool {
-	ident, ok := expr.(*ast.Ident)
-	return ok && ident.Name == ExprErrorIdent
-}
-
 //go:embed templates/api.tmpl
 var ApiTemplate string
 
@@ -388,7 +281,7 @@ func genApiCode(ctx *ApiContext) ([]byte, error) {
 				return x - y
 			},
 			"getRepr": func(node ast.Node) string {
-				return getRepr(node, fileContent)
+				return getRepr(node, FileContent)
 			},
 			"methodResp": func() string {
 				return MethodResponse
@@ -400,7 +293,7 @@ func genApiCode(ctx *ApiContext) ([]byte, error) {
 				return ident == MethodInner
 			},
 			"newType": func(expr ast.Expr) string {
-				return newType(expr, fileContent)
+				return newType(expr, FileContent)
 			},
 			"httpMethodHasBody": func(method string) bool {
 				switch method {

@@ -12,6 +12,10 @@ import (
 	"unicode"
 )
 
+const (
+	ExprErrorIdent = "error"
+)
+
 var (
 	sprintf    = fmt.Sprintf
 	quote      = strconv.Quote
@@ -58,6 +62,20 @@ func hit(fset *token.FileSet, node ast.Node, line int) bool {
 func isSlice(node ast.Node) bool {
 	typ, ok := node.(*ast.ArrayType)
 	return ok && typ.Len == nil
+}
+
+func checkInput(method *ast.FuncType) bool {
+	for _, param := range method.Params.List {
+		if len(param.Names) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func checkErrorType(expr ast.Expr) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == ExprErrorIdent
 }
 
 func nodeMap[T ast.Node, U any](src []T, f func(ast.Node) U) []U {
