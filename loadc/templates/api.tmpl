@@ -12,6 +12,7 @@ import (
     "net/textproto"
 {{ end -}}
 "text/template"
+"github.com/Boyux/mrpkg"
 )
 
 {{ $context := . }}
@@ -108,6 +109,23 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{- end }}
         )
 
+        {{ $addr := printf "addr%s" $method.Ident -}}
+        {{ $addr }} := mrpkg.GetObj[*bytes.Buffer]()
+        defer mrpkg.PutObj({{ $addr }})
+        defer {{ $addr }}.Reset()
+
+        {{ $header := printf "header%s" $method.Ident -}}
+        {{ if ne $method.Header "" -}}
+            {{ $header }} := mrpkg.GetObj[*bytes.Buffer]()
+            defer mrpkg.PutObj({{ $header }})
+            defer {{ $header }}.Reset()
+        {{- end }}
+
+        {{ $responseBody := printf "responseBody%s" $method.Ident -}}
+        {{ $responseBody }} := mrpkg.GetObj[*bytes.Buffer]()
+        defer mrpkg.PutObj({{ $responseBody }})
+        defer {{ $responseBody }}.Reset()
+
         {{ if $method.ReturnSlice -}}
             loop:
             for {
@@ -120,14 +138,6 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{- end -}}
         {{- $err := printf "err%s" $method.Ident }}
         {{- $err }} error
-        {{ $addr := printf "addr%s" $method.Ident -}}
-        {{ $addr }} bytes.Buffer
-        {{ $header := printf "header%s" $method.Ident -}}
-        {{ if ne $method.Header "" -}}
-            {{ $header }} bytes.Buffer
-        {{- end }}
-        {{ $responseBody := printf "responseBody%s" $method.Ident -}}
-        {{ $responseBody }} bytes.Buffer
         {{ $response := printf "response%s" $method.Ident -}}
         {{ $response }} interface {
         Err() error
@@ -138,7 +148,7 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         )
 
         if {{ $err }} = template.Must({{ $addrTmpl }}.Parse({{ quote ($method.TmplURL) }})).
-        Execute(&{{ $addr }}, map[string]any{
+        Execute({{ $addr }}, map[string]any{
         {{ if $context.HasInner -}}
             "{{ $context.Ident }}": imp.inner,
         {{ end -}}
@@ -158,7 +168,7 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{ $mimeHeader := printf "mimeHeader%s" $method.Ident -}}
         {{ if ne $method.Header "" -}}
             if {{ $err }} = template.Must({{ $headerTmpl }}.Parse({{ quote $method.Header }})).
-            Execute(&{{ $header }}, map[string]any{
+            Execute({{ $header }}, map[string]any{
             {{ if $context.HasInner -}}
                 "{{ $context.Ident }}": imp.inner,
             {{ end -}}
@@ -173,7 +183,7 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
             {{- end -}}
             fmt.Errorf("error building '{{ $method.Ident }}' header: %w", {{ $err }})
             }
-            {{ $bufReader }} := bufio.NewReader(&{{ $header }})
+            {{ $bufReader }} := bufio.NewReader({{ $header }})
             {{ $mimeHeader }}, {{ $err }} := textproto.NewReader({{ $bufReader }}).ReadMIMEHeader()
             if {{ $err }} != nil {
             return {{ range $index, $type := $method.Out -}}
@@ -233,7 +243,7 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         fmt.Errorf("error sending '{{ $method.Ident }}' request: %w", {{ $err }})
         }
 
-        if _, {{ $err }} = io.Copy(&{{ $responseBody }}, {{ $httpResponse }}.Body); {{ $err }} != nil {
+        if _, {{ $err }} = io.Copy({{ $responseBody }}, {{ $httpResponse }}.Body); {{ $err }} != nil {
         {{ $httpResponse }}.Body.Close()
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}

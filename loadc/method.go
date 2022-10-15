@@ -104,12 +104,21 @@ func inspectMethod(node ast.Node) (method *Method) {
 			buffer.WriteString("\r\n")
 		}
 		method.Header = buffer.String()
-		if method.Header[len(method.Header)-4:] != "\r\n\r\n" {
-			if method.Header[len(method.Header)-2:] != "\r\n" {
-				method.Header += "\r\n\r\n"
-			} else {
-				method.Header += "\r\n"
+		switch len(method.Header) {
+		default:
+			if method.Header[len(method.Header)-4:] == "\r\n\r\n" {
+				break
 			}
+			fallthrough
+		case 2, 3:
+			if method.Header[len(method.Header)-2:] == "\r\n" {
+				method.Header += "\r\n"
+			} else {
+				method.Header += "\r\n\r\n"
+			}
+		case 1:
+			method.Header += "\r\n\r\n"
+		case 0:
 		}
 	}
 	method.Ident = field.Names[0].Name
@@ -121,10 +130,12 @@ func inspectMethod(node ast.Node) (method *Method) {
 			method.In[name.Name] = param.Type
 		}
 	}
-	outParams := funcType.Results.List
-	method.Out = make([]ast.Expr, 0, len(outParams))
-	for _, param := range outParams {
-		method.Out = append(method.Out, param.Type)
+	if funcType.Results != nil {
+		outParams := funcType.Results.List
+		method.Out = make([]ast.Expr, 0, len(outParams))
+		for _, param := range outParams {
+			method.Out = append(method.Out, param.Type)
+		}
 	}
 	return method
 }
