@@ -167,6 +167,7 @@ func genSqlxCode(ctx *SqlxContext) ([]byte, error) {
 		Funcs(template.FuncMap{
 			"quote":      quote,
 			"readHeader": readHeader,
+			"isSlice":    isSlice,
 			"sub":        func(x, y int) int { return x - y },
 			"getRepr":    func(node ast.Node) string { return getRepr(node, FileContent) },
 			"isQuery":    func(op string) bool { return op == SqlxOpQuery },

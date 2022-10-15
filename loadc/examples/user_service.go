@@ -39,7 +39,7 @@ func (client *implUserService) Get(id int64) (User, error) {
 			Funcs(template.FuncMap{
 				"bindvars": mrpkg.GenBindVars,
 			}).
-			Parse("SELECT * FROM user WHERE id = ?;\r\n\r\n"),
+			Parse("SELECT *\nFROM user\nWHERE id = ?;\r\n\r\n"),
 	)
 
 	sqlGet := mrpkg.GetObj[*bytes.Buffer]()
@@ -52,7 +52,7 @@ func (client *implUserService) Get(id int64) (User, error) {
 		return v0Get, fmt.Errorf("error executing %s template: %w", strconv.Quote("Get"), errGet)
 	}
 
-	if errGet = client.Core.Select(&v0Get, sqlGet.String(), mrpkg.MergeArgs(
+	if errGet = client.Core.Get(&v0Get, sqlGet.String(), mrpkg.MergeArgs(
 		id,
 	)...); errGet != nil {
 		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlGet.String(), errGet)

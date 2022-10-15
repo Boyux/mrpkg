@@ -100,7 +100,7 @@ Core *sqlx.DB
     {{ end }}
 
     {{ if isQuery $method.SqlOperation }}
-        if {{ $err }} = client.Core.Select(&v0{{ $method.Ident }}, {{ $sql }}.String(), mrpkg.MergeArgs(
+        if {{ $err }} = client.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sql }}.String(), mrpkg.MergeArgs(
         {{ range $index, $ident := $sortIn -}}
             {{- $ident -}},
         {{ end }}
