@@ -133,6 +133,10 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 	)
 
 	for _, splitSqlUpdate := range strings.Split(sqlUpdate.String(), ";") {
+		splitSqlUpdate = strings.TrimSpace(splitSqlUpdate)
+		if splitSqlUpdate == "" {
+			continue
+		}
 		countUpdate := strings.Count(splitSqlUpdate, "?")
 		if _, errUpdate = txUpdate.Exec(splitSqlUpdate, argsUpdate[offsetUpdate:offsetUpdate+countUpdate]...); errUpdate != nil {
 			return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), splitSqlUpdate, errUpdate)
@@ -186,6 +190,10 @@ func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, er
 	)
 
 	for _, splitSqlUpdateName := range strings.Split(sqlUpdateName.String(), ";") {
+		splitSqlUpdateName = strings.TrimSpace(splitSqlUpdateName)
+		if splitSqlUpdateName == "" {
+			continue
+		}
 		countUpdateName := strings.Count(splitSqlUpdateName, "?")
 		if v0UpdateName, errUpdateName = txUpdateName.Exec(splitSqlUpdateName, argsUpdateName[offsetUpdateName:offsetUpdateName+countUpdateName]...); errUpdateName != nil {
 			return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), splitSqlUpdateName, errUpdateName)

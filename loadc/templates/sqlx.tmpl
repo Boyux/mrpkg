@@ -113,6 +113,10 @@ Core *sqlx.DB
 
         {{ $splitSql := printf "splitSql%s" $method.Ident }}
         for _, {{ $splitSql }} := range strings.Split({{ $sql }}.String(), ";") {
+        {{ $splitSql }} = strings.TrimSpace({{ $splitSql }})
+        if {{ $splitSql }} == "" {
+        continue
+        }
         {{ $count := printf "count%s" $method.Ident -}}
         {{ $count }} := strings.Count({{ $splitSql }}, "?")
         {{- $execResult := printf "v0%s" $method.Ident }}
