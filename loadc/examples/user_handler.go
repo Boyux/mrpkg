@@ -127,12 +127,17 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 	}
 	defer txUpdate.Rollback()
 
+	offsetUpdate := 0
+	argsUpdate := mrpkg.MergeArgs(
+		user,
+	)
+
 	for _, splitSqlUpdate := range strings.Split(sqlUpdate.String(), ";") {
-		if _, errUpdate = txUpdate.Exec(splitSqlUpdate, mrpkg.MergeArgs(
-			user,
-		)...); errUpdate != nil {
+		countUpdate := strings.Count(splitSqlUpdate, "?")
+		if _, errUpdate = txUpdate.Exec(splitSqlUpdate, argsUpdate[offsetUpdate:offsetUpdate+countUpdate]...); errUpdate != nil {
 			return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), splitSqlUpdate, errUpdate)
 		}
+		offsetUpdate += countUpdate
 	}
 
 	if errUpdate := txUpdate.Commit(); errUpdate != nil {
@@ -174,13 +179,18 @@ func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, er
 	}
 	defer txUpdateName.Rollback()
 
+	offsetUpdateName := 0
+	argsUpdateName := mrpkg.MergeArgs(
+		id,
+		name,
+	)
+
 	for _, splitSqlUpdateName := range strings.Split(sqlUpdateName.String(), ";") {
-		if v0UpdateName, errUpdateName = txUpdateName.Exec(splitSqlUpdateName, mrpkg.MergeArgs(
-			id,
-			name,
-		)...); errUpdateName != nil {
+		countUpdateName := strings.Count(splitSqlUpdateName, "?")
+		if v0UpdateName, errUpdateName = txUpdateName.Exec(splitSqlUpdateName, argsUpdateName[offsetUpdateName:offsetUpdateName+countUpdateName]...); errUpdateName != nil {
 			return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), splitSqlUpdateName, errUpdateName)
 		}
+		offsetUpdateName += countUpdateName
 	}
 
 	if errUpdateName := txUpdateName.Commit(); errUpdateName != nil {
