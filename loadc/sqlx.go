@@ -158,6 +158,15 @@ func readHeader(header string) (string, error) {
 	return buf.String(), nil
 }
 
+func importSql(methods []*Method) bool {
+	for _, method := range methods {
+		if method.SqlOperation() == SqlxOpExec && len(method.Out) > 1 {
+			return true
+		}
+	}
+	return false
+}
+
 //go:embed templates/sqlx.tmpl
 var SqlxTemplate string
 
@@ -167,6 +176,7 @@ func genSqlxCode(ctx *SqlxContext) ([]byte, error) {
 		Funcs(template.FuncMap{
 			"quote":      quote,
 			"readHeader": readHeader,
+			"importSql":  importSql,
 			"isSlice":    isSlice,
 			"sub":        func(x, y int) int { return x - y },
 			"getRepr":    func(node ast.Node) string { return getRepr(node, FileContent) },

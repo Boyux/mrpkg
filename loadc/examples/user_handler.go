@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"github.com/Boyux/mrpkg"
 	"github.com/jmoiron/sqlx"
@@ -128,8 +129,9 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 	return nil
 }
 
-func (client *implUserHandler) UpdateName(id int64, name string) error {
+func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, error) {
 	var (
+		v0UpdateName  sql.Result
 		errUpdateName error
 	)
 
@@ -150,15 +152,15 @@ func (client *implUserHandler) UpdateName(id int64, name string) error {
 		"id":   id,
 		"name": name,
 	}); errUpdateName != nil {
-		return fmt.Errorf("error executing %s template: %w", strconv.Quote("UpdateName"), errUpdateName)
+		return v0UpdateName, fmt.Errorf("error executing %s template: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
 
-	if _, errUpdateName = client.Core.Exec(sqlUpdateName.String(), mrpkg.MergeArgs(
+	if v0UpdateName, errUpdateName = client.Core.Exec(sqlUpdateName.String(), mrpkg.MergeArgs(
 		id,
 		name,
 	)...); errUpdateName != nil {
-		return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), sqlUpdateName.String(), errUpdateName)
+		return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), sqlUpdateName.String(), errUpdateName)
 	}
 
-	return nil
+	return v0UpdateName, nil
 }

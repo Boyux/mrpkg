@@ -1,5 +1,7 @@
 package main
 
+import "database/sql"
+
 type User struct {
 	Id   int64
 	Name string
@@ -45,7 +47,7 @@ type UserHandler interface {
 
 	// UpdateName EXEC
 	// UPDATE user SET name = ? WHERE id = ?;
-	UpdateName(id int64, name string) error
+	UpdateName(id int64, name string) (sql.Result, error)
 }
 
 type Inner struct {

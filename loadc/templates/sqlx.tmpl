@@ -7,6 +7,9 @@ import (
 "fmt"
 "bytes"
 "strconv"
+{{ if importSql $.Methods -}}
+    "database/sql"
+{{- end }}
 "text/template"
 "github.com/jmoiron/sqlx"
 "github.com/Boyux/mrpkg"
@@ -85,8 +88,8 @@ Core *sqlx.DB
     }
 
     {{ if isExec $method.SqlOperation }}
-        {{ $execResult := printf "execResult%s" $method.Ident }}
-        if _, {{ $err }} = client.Core.Exec({{ $sql }}.String(), mrpkg.MergeArgs(
+        {{ $execResult := printf "v0%s" $method.Ident }}
+        if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = client.Core.Exec({{ $sql }}.String(), mrpkg.MergeArgs(
         {{ range $index, $ident := $sortIn -}}
             {{- $ident -}},
         {{ end }}
