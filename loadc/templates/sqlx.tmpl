@@ -10,6 +10,9 @@ import (
 {{ if importSql $.Methods -}}
     "database/sql"
 {{- end }}
+{{ if importStrings $.Methods -}}
+    "strings"
+{{- end }}
 "text/template"
 "github.com/jmoiron/sqlx"
 "github.com/Boyux/mrpkg"
@@ -88,8 +91,21 @@ Core *sqlx.DB
     }
 
     {{ if isExec $method.SqlOperation }}
-        {{ $execResult := printf "v0%s" $method.Ident }}
-        if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = client.Core.Exec({{ $sql }}.String(), mrpkg.MergeArgs(
+        {{- $tx := printf "tx%s" $method.Ident -}}
+        {{ $tx }}, {{ $err }} := client.Core.Begin()
+        if {{ $err }} != nil {
+        return {{ range $index, $type := $method.Out -}}
+            {{- if lt $index (sub (len $method.Out) 1) -}}
+                v{{- $index -}}{{- $method.Ident }},
+            {{- end -}}
+        {{- end -}} fmt.Errorf("error creating %s transaction: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
+        }
+        defer {{ $tx }}.Rollback()
+
+        {{ $splitSql := printf "splitSql%s" $method.Ident }}
+        for _, {{ $splitSql }} := range strings.Split({{ $sql }}.String(), ";") {
+        {{- $execResult := printf "v0%s" $method.Ident -}}
+        if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $tx }}.Exec({{ $splitSql }}, mrpkg.MergeArgs(
         {{ range $index, $ident := $sortIn -}}
             {{- $ident -}},
         {{ end }}
@@ -98,7 +114,16 @@ Core *sqlx.DB
             {{- if lt $index (sub (len $method.Out) 1) -}}
                 v{{- $index -}}{{- $method.Ident }},
             {{- end -}}
-        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $sql }}.String(), {{ $err }})
+        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $splitSql }}, {{ $err }})
+        }
+        }
+
+        if {{ $err }} := {{ $tx }}.Commit(); {{ $err }} != nil {
+        return {{ range $index, $type := $method.Out -}}
+            {{- if lt $index (sub (len $method.Out) 1) -}}
+                v{{- $index -}}{{- $method.Ident }},
+            {{- end -}}
+        {{- end -}} fmt.Errorf("error committing %s transaction: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
         }
     {{ end }}
 

@@ -167,6 +167,15 @@ func importSql(methods []*Method) bool {
 	return false
 }
 
+func importStrings(methods []*Method) bool {
+	for _, method := range methods {
+		if method.SqlOperation() == SqlxOpExec {
+			return true
+		}
+	}
+	return false
+}
+
 //go:embed templates/sqlx.tmpl
 var SqlxTemplate string
 
@@ -174,14 +183,15 @@ func genSqlxCode(ctx *SqlxContext) ([]byte, error) {
 	tmpl, err := template.
 		New("loadc(sqlx)").
 		Funcs(template.FuncMap{
-			"quote":      quote,
-			"readHeader": readHeader,
-			"importSql":  importSql,
-			"isSlice":    isSlice,
-			"sub":        func(x, y int) int { return x - y },
-			"getRepr":    func(node ast.Node) string { return getRepr(node, FileContent) },
-			"isQuery":    func(op string) bool { return op == SqlxOpQuery },
-			"isExec":     func(op string) bool { return op == SqlxOpExec },
+			"quote":         quote,
+			"readHeader":    readHeader,
+			"importSql":     importSql,
+			"importStrings": importStrings,
+			"isSlice":       isSlice,
+			"sub":           func(x, y int) int { return x - y },
+			"getRepr":       func(node ast.Node) string { return getRepr(node, FileContent) },
+			"isQuery":       func(op string) bool { return op == SqlxOpQuery },
+			"isExec":        func(op string) bool { return op == SqlxOpExec },
 		}).
 		Parse(SqlxTemplate)
 

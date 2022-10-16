@@ -9,6 +9,7 @@ import (
 	"github.com/Boyux/mrpkg"
 	"github.com/jmoiron/sqlx"
 	"strconv"
+	"strings"
 	"text/template"
 )
 
@@ -120,10 +121,22 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 		return fmt.Errorf("error executing %s template: %w", strconv.Quote("Update"), errUpdate)
 	}
 
-	if _, errUpdate = client.Core.Exec(sqlUpdate.String(), mrpkg.MergeArgs(
-		user,
-	)...); errUpdate != nil {
-		return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), sqlUpdate.String(), errUpdate)
+	txUpdate, errUpdate := client.Core.Begin()
+	if errUpdate != nil {
+		return fmt.Errorf("error creating %s transaction: %w", strconv.Quote("Update"), errUpdate)
+	}
+	defer txUpdate.Rollback()
+
+	for _, splitSqlUpdate := range strings.Split(sqlUpdate.String(), ";") {
+		if _, errUpdate = txUpdate.Exec(splitSqlUpdate, mrpkg.MergeArgs(
+			user,
+		)...); errUpdate != nil {
+			return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), splitSqlUpdate, errUpdate)
+		}
+	}
+
+	if errUpdate := txUpdate.Commit(); errUpdate != nil {
+		return fmt.Errorf("error committing %s transaction: %w", strconv.Quote("Update"), errUpdate)
 	}
 
 	return nil
@@ -155,11 +168,23 @@ func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, er
 		return v0UpdateName, fmt.Errorf("error executing %s template: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
 
-	if v0UpdateName, errUpdateName = client.Core.Exec(sqlUpdateName.String(), mrpkg.MergeArgs(
-		id,
-		name,
-	)...); errUpdateName != nil {
-		return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), sqlUpdateName.String(), errUpdateName)
+	txUpdateName, errUpdateName := client.Core.Begin()
+	if errUpdateName != nil {
+		return v0UpdateName, fmt.Errorf("error creating %s transaction: %w", strconv.Quote("UpdateName"), errUpdateName)
+	}
+	defer txUpdateName.Rollback()
+
+	for _, splitSqlUpdateName := range strings.Split(sqlUpdateName.String(), ";") {
+		if v0UpdateName, errUpdateName = txUpdateName.Exec(splitSqlUpdateName, mrpkg.MergeArgs(
+			id,
+			name,
+		)...); errUpdateName != nil {
+			return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), splitSqlUpdateName, errUpdateName)
+		}
+	}
+
+	if errUpdateName := txUpdateName.Commit(); errUpdateName != nil {
+		return v0UpdateName, fmt.Errorf("error committing %s transaction: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
 
 	return v0UpdateName, nil
