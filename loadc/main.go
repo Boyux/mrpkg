@@ -17,7 +17,7 @@ const (
 	ModeApi  = "api"
 	ModeSqlx = "sqlx"
 
-	FileMode = 0b_0110_0110_0110 // 0666
+	FileMode = 0b_0110_0100_0100 // 0644
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 
 var loadc = &cobra.Command{
 	Use:     "loadc",
-	Version: "v0.2.5",
+	Version: "v0.2.6",
 	Args: func(cmd *cobra.Command, args []string) error {
 		switch mode {
 		case ModeSql:
