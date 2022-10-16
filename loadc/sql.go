@@ -94,8 +94,8 @@ func genSql(_ *cobra.Command, args []string) error {
 		output = "sql.go"
 	}
 
-	if err := write(join(CurrentDir, output), fmtCode, FileMode); err != nil {
-		return fmt.Errorf("os.WriteFile(%s, %0x)", join(CurrentDir, output), FileMode)
+	if err = write(join(CurrentDir, output), fmtCode, FileMode); err != nil {
+		return fmt.Errorf("os.WriteFile(%s, %04x): %w", join(CurrentDir, output), FileMode, err)
 	}
 
 	return nil

@@ -66,7 +66,7 @@ func genApi(_ *cobra.Command, _ []string) error {
 
 	code, err := genApiCode(inspectCtx)
 	if err != nil {
-		return fmt.Errorf("genApiCode: \n\n%#v\n\n%s", inspectCtx, err.Error())
+		return fmt.Errorf("genApiCode: \n\n%#v\n\n%w", inspectCtx, err)
 	}
 
 	fmtCode, err := format.Source(code)
@@ -78,8 +78,8 @@ func genApi(_ *cobra.Command, _ []string) error {
 		output = "api.go"
 	}
 
-	if err := write(join(CurrentDir, output), fmtCode, FileMode); err != nil {
-		return fmt.Errorf("os.WriteFile(%s, %0x)", join(CurrentDir, output), FileMode)
+	if err = write(join(CurrentDir, output), fmtCode, FileMode); err != nil {
+		return fmt.Errorf("os.WriteFile(%s, %04x): %w", join(CurrentDir, output), FileMode, err)
 	}
 
 	return nil
