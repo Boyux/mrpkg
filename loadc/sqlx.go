@@ -19,6 +19,8 @@ const (
 	SqlxOpExec  = "EXEC"
 	SqlxOpQuery = "QUERY"
 
+	SqlxFeatNamed = "NAMED"
+
 	SqlxCmdInclude = "INCLUDE"
 )
 
@@ -176,6 +178,15 @@ func importStrings(methods []*Method) bool {
 	return false
 }
 
+func hasFeature(feats []string, feat string) bool {
+	for _, f := range feats {
+		if f == toUpper(feat) {
+			return true
+		}
+	}
+	return false
+}
+
 //go:embed templates/sqlx.tmpl
 var SqlxTemplate string
 
@@ -187,6 +198,7 @@ func genSqlxCode(ctx *SqlxContext) ([]byte, error) {
 			"readHeader":    readHeader,
 			"importSql":     importSql,
 			"importStrings": importStrings,
+			"hasFeature":    hasFeature,
 			"isSlice":       isSlice,
 			"sub":           func(x, y int) int { return x - y },
 			"getRepr":       func(node ast.Node) string { return getRepr(node, FileContent) },

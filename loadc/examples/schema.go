@@ -32,21 +32,21 @@ type UserHandler interface {
 	// include sql/get_user.sql
 	Get(id int64) (User, error)
 
-	// QueryByNames QUERY
+	// QueryByName QUERY NAMED
 	// SELECT
 	//     id,
 	//     name
 	// FROM user
 	// WHERE
-	//     name IN ({{ bindvars $.names }})
-	QueryByNames(names []string) ([]User, error)
+	//     name = :name
+	QueryByName(name string) ([]User, error)
 
 	// Update EXEC
 	// UPDATE user SET name = ? WHERE id = ?;
 	Update(user *UserUpdate) error
 
-	// UpdateName EXEC
-	// UPDATE user SET name = ? WHERE id = ?;
+	// UpdateName EXEC NAMED
+	// UPDATE user SET name = :name WHERE id = :id;
 	UpdateName(id int64, name string) (sql.Result, error)
 }
 

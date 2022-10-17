@@ -54,47 +54,55 @@ func (client *implUserHandler) Get(id int64) (User, error) {
 		return v0Get, fmt.Errorf("error executing %s template: %w", strconv.Quote("Get"), errGet)
 	}
 
-	if errGet = client.Core.Get(&v0Get, sqlGet.String(), mrpkg.MergeArgs(
+	argsGet := mrpkg.MergeArgs(
 		id,
-	)...); errGet != nil {
+	)
+
+	if errGet = client.Core.Get(&v0Get, sqlGet.String(), argsGet...); errGet != nil {
 		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlGet.String(), errGet)
 	}
 
 	return v0Get, nil
 }
 
-func (client *implUserHandler) QueryByNames(names []string) ([]User, error) {
+func (client *implUserHandler) QueryByName(name string) ([]User, error) {
 	var (
-		v0QueryByNames  []User
-		errQueryByNames error
+		v0QueryByName  []User
+		errQueryByName error
 	)
 
-	sqlTmplQueryByNames := template.Must(
+	sqlTmplQueryByName := template.Must(
 		template.
-			New("QueryByNames").
+			New("QueryByName").
 			Funcs(template.FuncMap{
 				"bindvars": mrpkg.GenBindVars,
 			}).
-			Parse("SELECT\r\nid,\r\nname\r\nFROM user\r\nWHERE\r\nname IN ({{ bindvars $.names }})\r\n\r\n"),
+			Parse("SELECT\r\nid,\r\nname\r\nFROM user\r\nWHERE\r\nname = :name\r\n\r\n"),
 	)
 
-	sqlQueryByNames := mrpkg.GetObj[*bytes.Buffer]()
-	defer mrpkg.PutObj(sqlQueryByNames)
-	defer sqlQueryByNames.Reset()
+	sqlQueryByName := mrpkg.GetObj[*bytes.Buffer]()
+	defer mrpkg.PutObj(sqlQueryByName)
+	defer sqlQueryByName.Reset()
 
-	if errQueryByNames = sqlTmplQueryByNames.Execute(sqlQueryByNames, map[string]any{
-		"names": names,
-	}); errQueryByNames != nil {
-		return v0QueryByNames, fmt.Errorf("error executing %s template: %w", strconv.Quote("QueryByNames"), errQueryByNames)
+	if errQueryByName = sqlTmplQueryByName.Execute(sqlQueryByName, map[string]any{
+		"name": name,
+	}); errQueryByName != nil {
+		return v0QueryByName, fmt.Errorf("error executing %s template: %w", strconv.Quote("QueryByName"), errQueryByName)
 	}
 
-	if errQueryByNames = client.Core.Select(&v0QueryByNames, sqlQueryByNames.String(), mrpkg.MergeArgs(
-		names,
-	)...); errQueryByNames != nil {
-		return v0QueryByNames, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("QueryByNames"), sqlQueryByNames.String(), errQueryByNames)
+	argsQueryByName := map[string]any{
+		"name": name,
 	}
 
-	return v0QueryByNames, nil
+	stmtQueryByName, errQueryByName := client.Core.PrepareNamed(sqlQueryByName.String())
+	if errQueryByName != nil {
+		return v0QueryByName, fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote("QueryByName"), errQueryByName)
+	}
+	if errQueryByName = stmtQueryByName.Select(&v0QueryByName, argsQueryByName); errQueryByName != nil {
+		return v0QueryByName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("QueryByName"), sqlQueryByName.String(), errQueryByName)
+	}
+
+	return v0QueryByName, nil
 }
 
 func (client *implUserHandler) Update(user *UserUpdate) error {
@@ -121,7 +129,7 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 		return fmt.Errorf("error executing %s template: %w", strconv.Quote("Update"), errUpdate)
 	}
 
-	txUpdate, errUpdate := client.Core.Begin()
+	txUpdate, errUpdate := client.Core.Beginx()
 	if errUpdate != nil {
 		return fmt.Errorf("error creating %s transaction: %w", strconv.Quote("Update"), errUpdate)
 	}
@@ -137,10 +145,13 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 		if splitSqlUpdate == "" {
 			continue
 		}
+
 		countUpdate := strings.Count(splitSqlUpdate, "?")
+
 		if _, errUpdate = txUpdate.Exec(splitSqlUpdate, argsUpdate[offsetUpdate:offsetUpdate+countUpdate]...); errUpdate != nil {
 			return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), splitSqlUpdate, errUpdate)
 		}
+
 		offsetUpdate += countUpdate
 	}
 
@@ -163,7 +174,7 @@ func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, er
 			Funcs(template.FuncMap{
 				"bindvars": mrpkg.GenBindVars,
 			}).
-			Parse("UPDATE user SET name = ? WHERE id = ?;\r\n\r\n"),
+			Parse("UPDATE user SET name = :name WHERE id = :id;\r\n\r\n"),
 	)
 
 	sqlUpdateName := mrpkg.GetObj[*bytes.Buffer]()
@@ -177,28 +188,31 @@ func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, er
 		return v0UpdateName, fmt.Errorf("error executing %s template: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
 
-	txUpdateName, errUpdateName := client.Core.Begin()
+	txUpdateName, errUpdateName := client.Core.Beginx()
 	if errUpdateName != nil {
 		return v0UpdateName, fmt.Errorf("error creating %s transaction: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
 	defer txUpdateName.Rollback()
 
-	offsetUpdateName := 0
-	argsUpdateName := mrpkg.MergeArgs(
-		id,
-		name,
-	)
+	argsUpdateName := map[string]any{
+		"id":   id,
+		"name": name,
+	}
 
 	for _, splitSqlUpdateName := range strings.Split(sqlUpdateName.String(), ";") {
 		splitSqlUpdateName = strings.TrimSpace(splitSqlUpdateName)
 		if splitSqlUpdateName == "" {
 			continue
 		}
-		countUpdateName := strings.Count(splitSqlUpdateName, "?")
-		if v0UpdateName, errUpdateName = txUpdateName.Exec(splitSqlUpdateName, argsUpdateName[offsetUpdateName:offsetUpdateName+countUpdateName]...); errUpdateName != nil {
+
+		stmtUpdateName, errUpdateName := txUpdateName.PrepareNamed(splitSqlUpdateName)
+		if errUpdateName != nil {
+			return v0UpdateName, fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote("UpdateName"), errUpdateName)
+		}
+
+		if v0UpdateName, errUpdateName = stmtUpdateName.Exec(argsUpdateName); errUpdateName != nil {
 			return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), splitSqlUpdateName, errUpdateName)
 		}
-		offsetUpdateName += countUpdateName
 	}
 
 	if errUpdateName := txUpdateName.Commit(); errUpdateName != nil {

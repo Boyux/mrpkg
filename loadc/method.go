@@ -50,7 +50,10 @@ func (method *Method) MetaArgs() []string {
 // TmplURL should only be used with '--mode=api' arg
 func (method *Method) TmplURL() string {
 	args := method.MetaArgs()
-	return args[len(args)-1]
+	if len(args) >= 1 {
+		return args[len(args)-1]
+	}
+	return ""
 }
 
 var availableMethods = []string{
@@ -62,9 +65,11 @@ var availableMethods = []string{
 // MethodHTTP should only be used with '--mode=api' arg
 func (method *Method) MethodHTTP() string {
 	args := method.MetaArgs()
-	for _, httpMethod := range availableMethods {
-		if toUpper(args[len(args)-2]) == httpMethod {
-			return httpMethod
+	if len(args) >= 2 {
+		for _, httpMethod := range availableMethods {
+			if toUpper(args[len(args)-2]) == httpMethod {
+				return httpMethod
+			}
 		}
 	}
 	return ""
@@ -78,12 +83,27 @@ var availableOperations = []string{
 // SqlOperation should only be used with '--mode=sqlx' arg
 func (method *Method) SqlOperation() string {
 	args := method.MetaArgs()
-	for _, operation := range availableOperations {
-		if toUpper(args[len(args)-1]) == operation {
-			return operation
+	if len(args) >= 2 {
+		for _, operation := range availableOperations {
+			if toUpper(args[1]) == operation {
+				return operation
+			}
 		}
 	}
 	return ""
+}
+
+// SqlFeatures should only be used with '--mode=sqlx' arg
+func (method *Method) SqlFeatures() []string {
+	args := method.MetaArgs()
+	if len(args) >= 3 {
+		feats := make([]string, 0, len(args[2:]))
+		for _, feat := range args[2:] {
+			feats = append(feats, toUpper(feat))
+		}
+		return feats
+	}
+	return nil
 }
 
 func (method *Method) ReturnSlice() bool {

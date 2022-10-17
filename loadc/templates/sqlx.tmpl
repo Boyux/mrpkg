@@ -92,7 +92,7 @@ Core *sqlx.DB
 
     {{ if isExec $method.SqlOperation }}
         {{- $tx := printf "tx%s" $method.Ident -}}
-        {{ $tx }}, {{ $err }} := client.Core.Begin()
+        {{ $tx }}, {{ $err }} := client.Core.Beginx()
         if {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -103,13 +103,21 @@ Core *sqlx.DB
         defer {{ $tx }}.Rollback()
 
         {{ $offset := printf "offset%s" $method.Ident }}
-        {{ $offset }} := 0
         {{ $args := printf "args%s" $method.Ident -}}
-        {{ $args }} := mrpkg.MergeArgs(
-        {{ range $index, $ident := $sortIn -}}
-            {{- $ident -}},
+        {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
+            {{ $args }} := map[string]any{
+            {{ range $index, $ident := $sortIn -}}
+                {{- quote $ident }}: {{ $ident -}},
+            {{ end }}
+            }
+        {{ else }}
+            {{ $offset }} := 0
+            {{ $args }} := mrpkg.MergeArgs(
+            {{ range $index, $ident := $sortIn -}}
+                {{- $ident -}},
+            {{ end }}
+            )
         {{ end }}
-        )
 
         {{ $splitSql := printf "splitSql%s" $method.Ident }}
         for _, {{ $splitSql }} := range strings.Split({{ $sql }}.String(), ";") {
@@ -118,16 +126,34 @@ Core *sqlx.DB
         continue
         }
         {{ $count := printf "count%s" $method.Ident -}}
-        {{ $count }} := strings.Count({{ $splitSql }}, "?")
+        {{ if not (hasFeature ($method.SqlFeatures) "NAMED") }}
+            {{ $count }} := strings.Count({{ $splitSql }}, "?")
+        {{ end }}
         {{- $execResult := printf "v0%s" $method.Ident }}
-        if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $tx }}.Exec({{ $splitSql }}, {{ $args }}[{{ $offset }}:{{ $offset }}+{{ $count }}]...); {{ $err }} != nil {
+        {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
+            {{ $stmt := printf "stmt%s" $method.Ident }}
+            {{ $stmt }}, {{ $err }} := {{ $tx }}.PrepareNamed({{ $splitSql }})
+            if {{ $err }} != nil {
+            return {{ range $index, $type := $method.Out -}}
+                {{- if lt $index (sub (len $method.Out) 1) -}}
+                    v{{- $index -}}{{- $method.Ident }},
+                {{- end -}}
+            {{- end -}} fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
+            }
+
+            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $stmt }}.Exec({{ $args }}); {{ $err }} != nil {
+        {{ else }}
+            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $tx }}.Exec({{ $splitSql }}, {{ $args }}[{{ $offset }}:{{ $offset }}+{{ $count }}]...); {{ $err }} != nil {
+        {{ end -}}
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
                 v{{- $index -}}{{- $method.Ident }},
             {{- end -}}
         {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $splitSql }}, {{ $err }})
         }
-        {{ $offset }} += {{ $count }}
+        {{ if not (hasFeature ($method.SqlFeatures) "NAMED") }}
+            {{ $offset }} += {{ $count }}
+        {{ end -}}
         }
 
         if {{ $err }} := {{ $tx }}.Commit(); {{ $err }} != nil {
@@ -140,11 +166,35 @@ Core *sqlx.DB
     {{ end }}
 
     {{ if isQuery $method.SqlOperation }}
-        if {{ $err }} = client.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sql }}.String(), mrpkg.MergeArgs(
-        {{ range $index, $ident := $sortIn -}}
-            {{- $ident -}},
+        {{ $args := printf "args%s" $method.Ident -}}
+        {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
+            {{ $args }} := map[string]any{
+            {{ range $index, $ident := $sortIn -}}
+                {{- quote $ident }}: {{ $ident -}},
+            {{ end }}
+            }
+        {{ else }}
+            {{ $args }} := mrpkg.MergeArgs(
+            {{ range $index, $ident := $sortIn -}}
+                {{- $ident -}},
+            {{ end }}
+            )
         {{ end }}
-        )...); {{ $err }} != nil {
+
+        {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
+            {{ $stmt := printf "stmt%s" $method.Ident }}
+            {{ $stmt }}, {{ $err }} := client.Core.PrepareNamed({{ $sql }}.String())
+            if {{ $err }} != nil {
+            return {{ range $index, $type := $method.Out -}}
+                {{- if lt $index (sub (len $method.Out) 1) -}}
+                    v{{- $index -}}{{- $method.Ident }},
+                {{- end -}}
+            {{- end -}} fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
+            }
+            if {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $args }}); {{ $err }} != nil {
+        {{ else }}
+            if {{ $err }} = client.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sql }}.String(), {{ $args }}...); {{ $err }} != nil {
+        {{ end -}}
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
                 v{{- $index -}}{{- $method.Ident }},
