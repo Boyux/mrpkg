@@ -171,8 +171,22 @@ func (m *ConcurrentMap[K, V]) MapIterator() MapIterator[K, V] {
 	}
 }
 
+func NewConcurrentSet[T any](hashFunc func(T) any) *ConcurrentSet[T] {
+	set := new(ConcurrentSet[T])
+	set.HashFunc = hashFunc
+	return set
+}
+
 type ConcurrentSet[T any] struct {
-	concurrentMap ConcurrentMap[T, struct{}]
+	concurrentMap ConcurrentMap[any, T]
+	HashFunc      func(T) any
+}
+
+func (set *ConcurrentSet[T]) hash(x T) any {
+	if set.HashFunc == nil {
+		return x
+	}
+	return set.HashFunc(x)
 }
 
 func (set *ConcurrentSet[T]) Len() int {
@@ -180,11 +194,11 @@ func (set *ConcurrentSet[T]) Len() int {
 }
 
 func (set *ConcurrentSet[T]) Add(element T) {
-	set.concurrentMap.Set(element, struct{}{})
+	set.concurrentMap.Set(set.hash(element), element)
 }
 
 func (set *ConcurrentSet[T]) Del(element T) {
-	set.concurrentMap.Del(element)
+	set.concurrentMap.Del(set.hash(element))
 }
 
 func (set *ConcurrentSet[T]) BatchAdd(iter ListIterator[T]) {
@@ -228,13 +242,13 @@ func (set *ConcurrentSet[T]) SymmetricDifference(other *ConcurrentSet[T]) (targe
 }
 
 func (set *ConcurrentSet[T]) Contains(element T) bool {
-	_, loaded := set.concurrentMap.Get(element)
+	_, loaded := set.concurrentMap.Get(set.hash(element))
 	return loaded
 }
 
 func (set *ConcurrentSet[T]) sendToChan(ch chan<- T) {
 	for entry := range set.concurrentMap.Iterator() {
-		ch <- entry.Key
+		ch <- entry.Value
 	}
 	close(ch)
 }
@@ -246,7 +260,7 @@ func (set *ConcurrentSet[T]) Iterator() <-chan T {
 }
 
 type concurrentSetIterator[T any] struct {
-	mapIterator MapIterator[T, struct{}]
+	mapIterator MapIterator[any, T]
 }
 
 func (iter *concurrentSetIterator[T]) Next() bool {
@@ -254,7 +268,7 @@ func (iter *concurrentSetIterator[T]) Next() bool {
 }
 
 func (iter *concurrentSetIterator[T]) Value() T {
-	element, _ := iter.mapIterator.Value()
+	_, element := iter.mapIterator.Value()
 	return element
 }
 
