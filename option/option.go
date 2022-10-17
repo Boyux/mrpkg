@@ -75,21 +75,21 @@ func IsNonNull[T any](option Option[T]) bool {
 }
 
 func Contains[T comparable](option Option[T], value T) bool {
-	if option.Status().IsSome() {
+	if IsNonNull(option) {
 		return option.Value() == value
 	}
 	return false
 }
 
 func Map[T any, U any](option Option[T], mapFunc func(item T) U) Option[U] {
-	if option.Status().IsNone() {
+	if IsNull(option) {
 		return None[U]()
 	}
 	return Some(mapFunc(option.Value()))
 }
 
 func And[T any](a Option[T], b Option[T]) Option[T] {
-	if a.Status().IsNone() {
+	if IsNull(a) {
 		return a
 	} else {
 		return b
@@ -97,7 +97,7 @@ func And[T any](a Option[T], b Option[T]) Option[T] {
 }
 
 func Or[T any](a Option[T], b Option[T]) Option[T] {
-	if a.Status().IsSome() {
+	if IsNonNull(a) {
 		return a
 	} else {
 		return b
@@ -105,7 +105,7 @@ func Or[T any](a Option[T], b Option[T]) Option[T] {
 }
 
 func GetOrDefault[T any](option Option[T], defaultValue T) T {
-	if option.Status().IsNone() {
+	if IsNull(option) {
 		return defaultValue
 	}
 	return option.Value()
