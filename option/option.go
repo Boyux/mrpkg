@@ -1,5 +1,9 @@
 package option
 
+import (
+	"encoding/json"
+)
+
 type Status bool
 
 const (
@@ -42,6 +46,13 @@ func (option *Value[T]) Status() Status {
 
 func (option *Value[T]) Value() T {
 	return option.Content
+}
+
+func (option *Value[T]) MarshalJSON() ([]byte, error) {
+	if !option.Valid {
+		return json.Marshal(nil)
+	}
+	return json.Marshal(option.Content)
 }
 
 func Some[T any](value T) Option[T] {
