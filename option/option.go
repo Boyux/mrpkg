@@ -42,23 +42,28 @@ func (status Status) IsNone() bool {
 }
 
 type Value[T any] struct {
-	Valid bool
-	Item  any
+	valid bool
+	value any
 }
 
 func (option *Value[T]) Status() Status {
-	return Status(option.Valid)
+	return Status(option.valid)
 }
 
 func (option *Value[T]) Unwrap() T {
-	if !option.Valid {
+	if !option.valid {
 		panic("calling `Option.Unwrap` on a None value")
 	}
-	return option.Item.(T)
+	return option.value.(T)
+}
+
+func (option *Value[T]) Set(value T) {
+	option.valid = true
+	option.value = value
 }
 
 func (option *Value[T]) MarshalJSON() ([]byte, error) {
-	if !option.Valid {
+	if !option.valid {
 		return json.Marshal(nil)
 	}
 	return json.Marshal(option.Value)
@@ -66,98 +71,98 @@ func (option *Value[T]) MarshalJSON() ([]byte, error) {
 
 func (option *Value[T]) UnmarshalJSON(bytes []byte) error {
 	if bytesPkg.Equal(bytesPkg.TrimSpace(bytes), []byte("null")) {
-		option.Valid = false
-		option.Item = nil
+		option.valid = false
+		option.value = nil
 	}
-	option.Valid = true
-	if unmarshaler, ok := option.Item.(json.Unmarshaler); ok {
+	option.valid = true
+	if unmarshaler, ok := option.value.(json.Unmarshaler); ok {
 		return unmarshaler.UnmarshalJSON(bytes)
 	}
-	if reflect.TypeOf(option.Item).Kind() == reflect.Pointer {
-		return json.Unmarshal(bytes, option.Item)
+	if reflect.TypeOf(option.value).Kind() == reflect.Pointer {
+		return json.Unmarshal(bytes, option.value)
 	} else {
-		return json.Unmarshal(bytes, &option.Item)
+		return json.Unmarshal(bytes, &option.value)
 	}
 }
 
 func (option *Value[T]) Scan(src any) error {
 	if src == nil {
-		option.Valid = false
-		option.Item = nil
+		option.valid = false
+		option.value = nil
 		return nil
 	}
-	option.Valid = true
-	if scanner, ok := option.Item.(sql.Scanner); ok {
+	option.valid = true
+	if scanner, ok := option.value.(sql.Scanner); ok {
 		return scanner.Scan(src)
 	}
 	switch v := src.(type) {
 	case int64:
-		switch option.Item.(type) {
+		switch option.value.(type) {
 		case int:
-			option.Item = int(v)
+			option.value = int(v)
 		case int64:
-			option.Item = v
+			option.value = v
 		case uint:
-			option.Item = uint(v)
+			option.value = uint(v)
 		case uint64:
-			option.Item = uint64(v)
+			option.value = uint64(v)
 		}
 	case float64:
-		switch option.Item.(type) {
+		switch option.value.(type) {
 		case float64:
-			option.Item = v
+			option.value = v
 		}
 	case bool:
-		switch option.Item.(type) {
+		switch option.value.(type) {
 		case bool:
-			option.Item = v
+			option.value = v
 		}
 	case []byte:
-		switch option.Item.(type) {
+		switch option.value.(type) {
 		case []byte:
-			option.Item = v
+			option.value = v
 		case string:
-			option.Item = string(v)
+			option.value = string(v)
 		}
 	case string:
-		switch option.Item.(type) {
+		switch option.value.(type) {
 		case []byte:
-			option.Item = []byte(v)
+			option.value = []byte(v)
 		case string:
-			option.Item = v
+			option.value = v
 		}
 	case time.Time:
-		switch option.Item.(type) {
+		switch option.value.(type) {
 		case time.Time:
-			option.Item = v
+			option.value = v
 		case *time.Time:
-			option.Item = &v
+			option.value = &v
 		}
 	}
-	return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %T", src, option.Item)
+	return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %T", src, option.value)
 }
 
 func (option *Value[T]) Value() (driver.Value, error) {
 	if IsNull[T](option) {
 		return nil, nil
 	}
-	if valuer, ok := option.Item.(driver.Valuer); ok {
+	if valuer, ok := option.value.(driver.Valuer); ok {
 		return valuer.Value()
 	}
-	return option.Item, nil
+	return option.value, nil
 }
 
 func Some[T any](value T) Option[T] {
 	return &Value[T]{
-		Valid: true,
-		Item:  value,
+		valid: true,
+		value: value,
 	}
 }
 
 func None[T any]() Option[T] {
 	return &Value[T]{
-		Valid: false,
-		Item:  nil,
+		valid: false,
+		value: nil,
 	}
 }
 
