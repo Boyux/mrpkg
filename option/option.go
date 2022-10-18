@@ -41,6 +41,20 @@ func (status Status) IsNone() bool {
 	return status == StatusNone
 }
 
+func New[T any](value T) Value[T] {
+	return Value[T]{
+		valid: true,
+		value: value,
+	}
+}
+
+func NewNone[T any]() Value[T] {
+	return Value[T]{
+		valid: false,
+		value: nil,
+	}
+}
+
 type Value[T any] struct {
 	valid bool
 	value any
