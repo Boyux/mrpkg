@@ -93,9 +93,16 @@ func (option *Value[T]) UnmarshalJSON(bytes []byte) error {
 		return unmarshaler.UnmarshalJSON(bytes)
 	}
 	if reflect.TypeOf(option.value).Kind() == reflect.Pointer {
-		return json.Unmarshal(bytes, option.value)
+		var x T
+		option.value = x
+		return json.Unmarshal(bytes, x)
 	} else {
-		return json.Unmarshal(bytes, &option.value)
+		var x T
+		if err := json.Unmarshal(bytes, &x); err != nil {
+			return err
+		}
+		option.value = x
+		return nil
 	}
 }
 
@@ -105,7 +112,9 @@ func (option *Value[T]) Scan(src any) error {
 		option.value = nil
 		return nil
 	}
+	var x T
 	option.valid = true
+	option.value = x
 	if scanner, ok := option.value.(sql.Scanner); ok {
 		return scanner.Scan(src)
 	}
