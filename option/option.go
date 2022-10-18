@@ -123,43 +123,55 @@ func (option *Value[T]) Scan(src any) error {
 		switch option.value.(type) {
 		case int:
 			option.value = int(v)
+			return nil
 		case int64:
 			option.value = v
+			return nil
 		case uint:
 			option.value = uint(v)
+			return nil
 		case uint64:
 			option.value = uint64(v)
+			return nil
 		}
 	case float64:
 		switch option.value.(type) {
 		case float64:
 			option.value = v
+			return nil
 		}
 	case bool:
 		switch option.value.(type) {
 		case bool:
 			option.value = v
+			return nil
 		}
 	case []byte:
 		switch option.value.(type) {
 		case []byte:
 			option.value = v
+			return nil
 		case string:
 			option.value = string(v)
+			return nil
 		}
 	case string:
 		switch option.value.(type) {
 		case []byte:
 			option.value = []byte(v)
+			return nil
 		case string:
 			option.value = v
+			return nil
 		}
 	case time.Time:
 		switch option.value.(type) {
 		case time.Time:
 			option.value = v
+			return nil
 		case *time.Time:
 			option.value = &v
+			return nil
 		}
 	}
 	return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %T", src, option.value)
