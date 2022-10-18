@@ -88,16 +88,12 @@ func (option *Value[T]) UnmarshalJSON(bytes []byte) error {
 		option.valid = false
 		option.value = nil
 	}
+	var x T
 	option.valid = true
-	if unmarshaler, ok := option.value.(json.Unmarshaler); ok {
-		return unmarshaler.UnmarshalJSON(bytes)
-	}
-	if reflect.TypeOf(option.value).Kind() == reflect.Pointer {
-		var x T
-		option.value = x
+	option.value = x
+	if reflect.TypeOf(x).Kind() == reflect.Pointer {
 		return json.Unmarshal(bytes, x)
 	} else {
-		var x T
 		if err := json.Unmarshal(bytes, &x); err != nil {
 			return err
 		}
@@ -115,8 +111,21 @@ func (option *Value[T]) Scan(src any) error {
 	var x T
 	option.valid = true
 	option.value = x
-	if scanner, ok := option.value.(sql.Scanner); ok {
-		return scanner.Scan(src)
+	var maybeScanner any
+	if reflect.TypeOf(x).Kind() == reflect.Pointer {
+		maybeScanner = x
+		if scanner, ok := maybeScanner.(sql.Scanner); ok {
+			return scanner.Scan(src)
+		}
+	} else {
+		maybeScanner = &x
+		if scanner, ok := maybeScanner.(sql.Scanner); ok {
+			if err := scanner.Scan(src); err != nil {
+				return err
+			}
+			option.value = x
+			return nil
+		}
 	}
 	switch v := src.(type) {
 	case int64:
@@ -181,7 +190,16 @@ func (option *Value[T]) Value() (driver.Value, error) {
 	if IsNull[T](option) {
 		return nil, nil
 	}
-	if valuer, ok := option.value.(driver.Valuer); ok {
+	var maybeValuer any
+	if reflect.TypeOf(option.value).Kind() == reflect.Pointer {
+		x := option.value.(T)
+		maybeValuer = &x
+		if valuer, ok := maybeValuer.(driver.Valuer); ok {
+			return valuer.Value()
+		}
+	}
+	maybeValuer = option.value.(T)
+	if valuer, ok := maybeValuer.(driver.Valuer); ok {
 		return valuer.Value()
 	}
 	return option.value, nil
