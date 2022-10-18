@@ -33,7 +33,7 @@ func AtomicAdd[T constraints.Integer](cell *Cell[T], value T) T {
 	}
 
 	for {
-		oldValue := cell.Load().Value()
+		oldValue := cell.Load().Unwrap()
 		newValue := oldValue + value
 		if cell.CompareAndSwap(oldValue, newValue) {
 			return newValue
