@@ -80,7 +80,7 @@ func (option *Value[T]) MarshalJSON() ([]byte, error) {
 	if !option.valid {
 		return json.Marshal(nil)
 	}
-	return json.Marshal(option.Value)
+	return json.Marshal(option.value)
 }
 
 func (option *Value[T]) UnmarshalJSON(bytes []byte) error {
