@@ -35,12 +35,19 @@ Core: core,
 }
 
 type {{ $impName }} struct {
-Core *sqlx.DB
+withTx bool
+Core interface{
+Beginx() (*sqlx.Tx, error)
+PrepareNamed(query string) (*sqlx.NamedStmt, error)
+Exec(query string, args ...interface{}) (sql.Result, error)
+Get(dest interface{}, query string, args ...interface{}) error
+Select(dest interface{}, query string, args ...interface{}) error
+}
 }
 
 {{ range $index, $method := $.Methods }}
     {{ $sortIn := $method.SortIn }}
-    func (client *{{ $receiver }}) {{ $method.Ident }}(
+    func (imp *{{ $receiver }}) {{ $method.Ident }}(
     {{- range $index, $ident := $sortIn -}}
         {{- $ident }} {{ getRepr (index $method.In $ident) }},
     {{- end -}}
@@ -92,7 +99,7 @@ Core *sqlx.DB
 
     {{ if isExec $method.SqlOperation }}
         {{- $tx := printf "tx%s" $method.Ident -}}
-        {{ $tx }}, {{ $err }} := client.Core.Beginx()
+        {{ $tx }}, {{ $err }} := imp.Core.Beginx()
         if {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -100,7 +107,9 @@ Core *sqlx.DB
             {{- end -}}
         {{- end -}} fmt.Errorf("error creating %s transaction: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
         }
+        if !imp.withTx{
         defer {{ $tx }}.Rollback()
+        }
 
         {{ $offset := printf "offset%s" $method.Ident }}
         {{ $args := printf "args%s" $method.Ident -}}
@@ -156,12 +165,14 @@ Core *sqlx.DB
         {{ end -}}
         }
 
+        if !imp.withTx{
         if {{ $err }} := {{ $tx }}.Commit(); {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
                 v{{- $index -}}{{- $method.Ident }},
             {{- end -}}
         {{- end -}} fmt.Errorf("error committing %s transaction: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
+        }
         }
     {{ end }}
 
@@ -185,7 +196,7 @@ Core *sqlx.DB
 
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $stmt := printf "stmt%s" $method.Ident }}
-            {{ $stmt }}, {{ $err }} := client.Core.PrepareNamed({{ $sqlQuery }})
+            {{ $stmt }}, {{ $err }} := imp.Core.PrepareNamed({{ $sqlQuery }})
             if {{ $err }} != nil {
             return {{ range $index, $type := $method.Out -}}
                 {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -195,7 +206,7 @@ Core *sqlx.DB
             }
             if {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $args }}); {{ $err }} != nil {
         {{ else }}
-            if {{ $err }} = client.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...); {{ $err }} != nil {
+            if {{ $err }} = imp.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...); {{ $err }} != nil {
         {{ end -}}
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -210,5 +221,42 @@ Core *sqlx.DB
             v{{- $index -}}{{- $method.Ident }},
         {{- end -}}
     {{- end -}} nil
+    }
+{{ end }}
+
+{{ if $.WithTx }}
+    {{ $tx := printf "tx%s" $.Ident }}
+    type {{ $tx }} struct {
+    *sqlx.Tx
+    }
+
+    func (tx {{ $tx }}) Beginx() (*sqlx.Tx, error) {
+    return tx.Tx, nil
+    }
+
+    func (imp *{{ $receiver }}) WithTx(f func({{ $.Ident }}) error) error {
+    inner, err := imp.Core.Beginx()
+    if err != nil {
+    return fmt.Errorf("error creating transaction in %s: %w", strconv.Quote("WithTx"), err)
+    }
+
+    defer inner.Rollback()
+
+    tx := &{{ $impName }}{
+    withTx: true,
+    Core: &{{ $tx }}{
+    inner,
+    },
+    }
+
+    if err = f(tx); err != nil {
+    return err
+    }
+
+    if err = inner.Commit(); err != nil {
+    return fmt.Errorf("error committing transaction in %s: %w", strconv.Quote("WithTx"), err)
+    }
+
+    return nil
     }
 {{ end }}

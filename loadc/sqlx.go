@@ -21,6 +21,8 @@ const (
 
 	SqlxFeatNamed = "NAMED"
 
+	SqlxMethodWithTx = "WithTx"
+
 	SqlxCmdInclude = "INCLUDE"
 )
 
@@ -30,7 +32,7 @@ func genSqlx(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("inspectSqlx(%s, %d): %w", quote(join(CurrentDir, CurrentFile)), LineNum, err)
 	}
 
-	for _, method := range inspectCtx.Methods {
+	for i, method := range inspectCtx.Methods {
 		if l := len(method.Out); l == 0 || !checkErrorType(method.Out[l-1]) {
 			return fmt.Errorf("checkErrorType: no 'error' found in method %s returned value",
 				quote(method.Ident))
@@ -40,6 +42,11 @@ func genSqlx(_ *cobra.Command, _ []string) error {
 			return fmt.Errorf("%s method expects 2 returned value at most, got %d",
 				quote(method.Ident),
 				len(method.Out))
+		}
+
+		if method.Ident == SqlxMethodWithTx {
+			inspectCtx.WithTx = true
+			inspectCtx.Methods = append(inspectCtx.Methods[:i], inspectCtx.Methods[i+1:]...)
 		}
 	}
 
@@ -68,6 +75,7 @@ type SqlxContext struct {
 	Package string
 	Ident   string
 	Methods []*Method
+	WithTx  bool
 }
 
 func inspectSqlx(file string, line int) (*SqlxContext, error) {
@@ -121,11 +129,11 @@ inspectType:
 	}
 
 	for _, method := range ifaceType.Methods.List {
-		if !checkInput(method.Type.(*ast.FuncType)) {
+		if name := method.Names[0].Name; name != SqlxMethodWithTx && !checkInput(method.Type.(*ast.FuncType)) {
 			return nil, fmt.Errorf(""+
 				"input params for method %s should "+
 				"contain 'Name' and 'Type' both",
-				quote(method.Names[0].Name))
+				quote(name))
 		}
 	}
 

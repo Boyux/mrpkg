@@ -28,6 +28,8 @@ func (update *UserUpdate) ToArgs() []any {
 
 //go:generate go run "github.com/Boyux/mrpkg/loadc" --mode=sqlx --output=user_handler.go
 type UserHandler interface {
+	WithTx(func(UserHandler) error) error
+
 	// Get QUERY
 	// include sql/get_user.sql
 	Get(id int64) (User, error)

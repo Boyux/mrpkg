@@ -26,10 +26,17 @@ func NewUserHandlerFromDB(core *sqlx.DB) UserHandler {
 }
 
 type implUserHandler struct {
-	Core *sqlx.DB
+	withTx bool
+	Core   interface {
+		Beginx() (*sqlx.Tx, error)
+		PrepareNamed(query string) (*sqlx.NamedStmt, error)
+		Exec(query string, args ...interface{}) (sql.Result, error)
+		Get(dest interface{}, query string, args ...interface{}) error
+		Select(dest interface{}, query string, args ...interface{}) error
+	}
 }
 
-func (client *implUserHandler) Get(id int64) (User, error) {
+func (imp *implUserHandler) Get(id int64) (User, error) {
 	var (
 		v0Get  User
 		errGet error
@@ -59,14 +66,14 @@ func (client *implUserHandler) Get(id int64) (User, error) {
 		id,
 	)
 
-	if errGet = client.Core.Get(&v0Get, sqlQueryGet, argsGet...); errGet != nil {
+	if errGet = imp.Core.Get(&v0Get, sqlQueryGet, argsGet...); errGet != nil {
 		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlQueryGet, errGet)
 	}
 
 	return v0Get, nil
 }
 
-func (client *implUserHandler) QueryByName(name string) ([]User, error) {
+func (imp *implUserHandler) QueryByName(name string) ([]User, error) {
 	var (
 		v0QueryByName  []User
 		errQueryByName error
@@ -96,7 +103,7 @@ func (client *implUserHandler) QueryByName(name string) ([]User, error) {
 		"name": name,
 	}
 
-	stmtQueryByName, errQueryByName := client.Core.PrepareNamed(sqlQueryQueryByName)
+	stmtQueryByName, errQueryByName := imp.Core.PrepareNamed(sqlQueryQueryByName)
 	if errQueryByName != nil {
 		return v0QueryByName, fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote("QueryByName"), errQueryByName)
 	}
@@ -107,7 +114,7 @@ func (client *implUserHandler) QueryByName(name string) ([]User, error) {
 	return v0QueryByName, nil
 }
 
-func (client *implUserHandler) Update(user *UserUpdate) error {
+func (imp *implUserHandler) Update(user *UserUpdate) error {
 	var (
 		errUpdate error
 	)
@@ -131,11 +138,13 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 		return fmt.Errorf("error executing %s template: %w", strconv.Quote("Update"), errUpdate)
 	}
 
-	txUpdate, errUpdate := client.Core.Beginx()
+	txUpdate, errUpdate := imp.Core.Beginx()
 	if errUpdate != nil {
 		return fmt.Errorf("error creating %s transaction: %w", strconv.Quote("Update"), errUpdate)
 	}
-	defer txUpdate.Rollback()
+	if !imp.withTx {
+		defer txUpdate.Rollback()
+	}
 
 	offsetUpdate := 0
 	argsUpdate := mrpkg.MergeArgs(
@@ -157,14 +166,16 @@ func (client *implUserHandler) Update(user *UserUpdate) error {
 		offsetUpdate += countUpdate
 	}
 
-	if errUpdate := txUpdate.Commit(); errUpdate != nil {
-		return fmt.Errorf("error committing %s transaction: %w", strconv.Quote("Update"), errUpdate)
+	if !imp.withTx {
+		if errUpdate := txUpdate.Commit(); errUpdate != nil {
+			return fmt.Errorf("error committing %s transaction: %w", strconv.Quote("Update"), errUpdate)
+		}
 	}
 
 	return nil
 }
 
-func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, error) {
+func (imp *implUserHandler) UpdateName(id int64, name string) (sql.Result, error) {
 	var (
 		v0UpdateName  sql.Result
 		errUpdateName error
@@ -190,11 +201,13 @@ func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, er
 		return v0UpdateName, fmt.Errorf("error executing %s template: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
 
-	txUpdateName, errUpdateName := client.Core.Beginx()
+	txUpdateName, errUpdateName := imp.Core.Beginx()
 	if errUpdateName != nil {
 		return v0UpdateName, fmt.Errorf("error creating %s transaction: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
-	defer txUpdateName.Rollback()
+	if !imp.withTx {
+		defer txUpdateName.Rollback()
+	}
 
 	argsUpdateName := map[string]any{
 		"id":   id,
@@ -217,9 +230,45 @@ func (client *implUserHandler) UpdateName(id int64, name string) (sql.Result, er
 		}
 	}
 
-	if errUpdateName := txUpdateName.Commit(); errUpdateName != nil {
-		return v0UpdateName, fmt.Errorf("error committing %s transaction: %w", strconv.Quote("UpdateName"), errUpdateName)
+	if !imp.withTx {
+		if errUpdateName := txUpdateName.Commit(); errUpdateName != nil {
+			return v0UpdateName, fmt.Errorf("error committing %s transaction: %w", strconv.Quote("UpdateName"), errUpdateName)
+		}
 	}
 
 	return v0UpdateName, nil
+}
+
+type txUserHandler struct {
+	*sqlx.Tx
+}
+
+func (tx txUserHandler) Beginx() (*sqlx.Tx, error) {
+	return tx.Tx, nil
+}
+
+func (imp *implUserHandler) WithTx(f func(UserHandler) error) error {
+	inner, err := imp.Core.Beginx()
+	if err != nil {
+		return fmt.Errorf("error creating transaction in %s: %w", strconv.Quote("WithTx"), err)
+	}
+
+	defer inner.Rollback()
+
+	tx := &implUserHandler{
+		withTx: true,
+		Core: &txUserHandler{
+			inner,
+		},
+	}
+
+	if err = f(tx); err != nil {
+		return err
+	}
+
+	if err = inner.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction in %s: %w", strconv.Quote("WithTx"), err)
+	}
+
+	return nil
 }
