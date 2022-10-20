@@ -166,7 +166,9 @@ Core *sqlx.DB
     {{ end }}
 
     {{ if isQuery $method.SqlOperation }}
-        {{ $args := printf "args%s" $method.Ident -}}
+        {{ $sqlQuery := printf "sqlQuery%s" $method.Ident -}}
+        {{ $sqlQuery }} := strings.TrimSpace({{ $sql }}.String())
+        {{- $args := printf "args%s" $method.Ident -}}
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $args }} := map[string]any{
             {{ range $index, $ident := $sortIn -}}
@@ -183,7 +185,7 @@ Core *sqlx.DB
 
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $stmt := printf "stmt%s" $method.Ident }}
-            {{ $stmt }}, {{ $err }} := client.Core.PrepareNamed({{ $sql }}.String())
+            {{ $stmt }}, {{ $err }} := client.Core.PrepareNamed({{ $sqlQuery }})
             if {{ $err }} != nil {
             return {{ range $index, $type := $method.Out -}}
                 {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -193,13 +195,13 @@ Core *sqlx.DB
             }
             if {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $args }}); {{ $err }} != nil {
         {{ else }}
-            if {{ $err }} = client.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sql }}.String(), {{ $args }}...); {{ $err }} != nil {
+            if {{ $err }} = client.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...); {{ $err }} != nil {
         {{ end -}}
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
                 v{{- $index -}}{{- $method.Ident }},
             {{- end -}}
-        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $sql }}.String(), {{ $err }})
+        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $sqlQuery }}, {{ $err }})
         }
     {{ end }}
 

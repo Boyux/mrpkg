@@ -54,12 +54,13 @@ func (client *implUserHandler) Get(id int64) (User, error) {
 		return v0Get, fmt.Errorf("error executing %s template: %w", strconv.Quote("Get"), errGet)
 	}
 
+	sqlQueryGet := strings.TrimSpace(sqlGet.String())
 	argsGet := mrpkg.MergeArgs(
 		id,
 	)
 
-	if errGet = client.Core.Get(&v0Get, sqlGet.String(), argsGet...); errGet != nil {
-		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlGet.String(), errGet)
+	if errGet = client.Core.Get(&v0Get, sqlQueryGet, argsGet...); errGet != nil {
+		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlQueryGet, errGet)
 	}
 
 	return v0Get, nil
@@ -90,16 +91,17 @@ func (client *implUserHandler) QueryByName(name string) ([]User, error) {
 		return v0QueryByName, fmt.Errorf("error executing %s template: %w", strconv.Quote("QueryByName"), errQueryByName)
 	}
 
+	sqlQueryQueryByName := strings.TrimSpace(sqlQueryByName.String())
 	argsQueryByName := map[string]any{
 		"name": name,
 	}
 
-	stmtQueryByName, errQueryByName := client.Core.PrepareNamed(sqlQueryByName.String())
+	stmtQueryByName, errQueryByName := client.Core.PrepareNamed(sqlQueryQueryByName)
 	if errQueryByName != nil {
 		return v0QueryByName, fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote("QueryByName"), errQueryByName)
 	}
 	if errQueryByName = stmtQueryByName.Select(&v0QueryByName, argsQueryByName); errQueryByName != nil {
-		return v0QueryByName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("QueryByName"), sqlQueryByName.String(), errQueryByName)
+		return v0QueryByName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("QueryByName"), sqlQueryQueryByName, errQueryByName)
 	}
 
 	return v0QueryByName, nil
