@@ -61,11 +61,14 @@ type Value[T any] struct {
 }
 
 func (option *Value[T]) Status() Status {
+	if option == nil {
+		return StatusNone
+	}
 	return Status(option.valid)
 }
 
 func (option *Value[T]) Unwrap() T {
-	if !option.valid {
+	if option == nil || !option.valid {
 		panic("calling `Option.Unwrap` on a None value")
 	}
 	return option.value.(T)
