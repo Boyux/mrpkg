@@ -3,6 +3,7 @@ package mrpkg
 import (
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 )
 
@@ -74,5 +75,39 @@ func TestConcurrentSet_SymmetricDifference(t *testing.T) {
 			ToGoSlice(set1.ListIterator()),
 			ToGoSlice(set2.ListIterator()),
 			target)
+	}
+}
+
+type Int int
+
+var tinyInts = []int{
+	1, 2, 5, 6, 7, 9,
+	10, 100, 1000, 10000,
+	99, 999, 9999, 99880,
+}
+
+func TestTinyMap_Get(t *testing.T) {
+	var tiny TinyMap[Int, int]
+	for _, i := range tinyInts {
+		tiny.Set(Int(i), i)
+	}
+	for _, i := range tinyInts {
+		v, ok := tiny.Get(Int(i))
+		if !ok {
+			t.Errorf("TinyMap.Get: key %s not exists\n", strconv.Quote(strconv.Itoa(i)))
+		}
+		if v != i {
+			t.Errorf("TinyMap.Get: value of key %s is not expected; expect=%d; got=%d\n",
+				strconv.Quote(strconv.Itoa(i)), i, v)
+		}
+	}
+}
+
+func TestTinySet_Contains(t *testing.T) {
+	tiny := NewTinySetFromSlice(tinyInts)
+	for _, i := range tinyInts {
+		if !tiny.Contains(i) {
+			t.Errorf("TinySet.Contains: element %s not exists\n", strconv.Quote(strconv.Itoa(i)))
+		}
 	}
 }

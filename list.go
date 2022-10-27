@@ -206,12 +206,15 @@ func (vector *Vector[T]) SortBy(less func(l, r T) bool) {
 
 func (vector *Vector[T]) Insert(index int, element T) {
 	originLen := vector.Len()
-	if index >= originLen {
+	if index > originLen {
 		panic(fmt.Errorf("Vector.Insert: index %d out of range(%d)", index, originLen))
+	} else if index < originLen {
+		vector.mem = append(vector.mem, element)
+		copy(vector.mem[index+1:], vector.mem[index:originLen])
+		vector.mem[index] = element
+	} else {
+		vector.Push(element)
 	}
-	vector.mem = append(vector.mem, element)
-	copy(vector.mem[index+1:], vector.mem[index:originLen])
-	vector.mem[index] = element
 }
 
 func (vector *Vector[T]) sendToChan(ch chan<- T) {

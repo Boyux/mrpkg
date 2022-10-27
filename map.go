@@ -58,7 +58,6 @@ func (o *orderedMap[K, V]) Value() (K, V) {
 type Entry[K any, V any] struct {
 	Key   K
 	Value V
-	Map   *ConcurrentMap[K, V]
 }
 
 // ConcurrentMap is a lock free concurrent map
@@ -108,7 +107,6 @@ func (m *ConcurrentMap[K, V]) sendToChan(ch chan<- *Entry[K, V]) {
 		ch <- &Entry[K, V]{
 			Key:   key.(K),
 			Value: value.(V),
-			Map:   m,
 		}
 		return true
 	})
@@ -276,4 +274,79 @@ func (set *ConcurrentSet[T]) ListIterator() ListIterator[T] {
 	return &concurrentSetIterator[T]{
 		mapIterator: set.concurrentMap.MapIterator(),
 	}
+}
+
+type TinyMap[K OrderedMapKey, V any] struct {
+	inner Vector[Entry[K, V]]
+}
+
+func (tiny *TinyMap[K, V]) Len() int {
+	return tiny.inner.Len()
+}
+
+func (tiny *TinyMap[K, V]) Set(key K, val V) {
+	i := sort.Search(tiny.Len(), func(i int) bool {
+		return tiny.inner.mem[i].Key >= key
+	})
+	if i < tiny.Len() && tiny.inner.mem[i].Key == key {
+		tiny.inner.mem[i].Value = val
+	} else {
+		tiny.inner.Insert(i, Entry[K, V]{
+			Key:   key,
+			Value: val,
+		})
+	}
+}
+
+func (tiny *TinyMap[K, V]) Get(key K) (val V, ok bool) {
+	i := sort.Search(tiny.Len(), func(i int) bool {
+		return tiny.inner.mem[i].Key >= key
+	})
+	if i < tiny.Len() && tiny.inner.mem[i].Key == key {
+		return tiny.inner.mem[i].Value, true
+	} else {
+		return val, false
+	}
+}
+
+func NewTinySetFromSlice[T OrderedMapKey](elements []T) (tiny *TinySet[T]) {
+	tiny = &TinySet[T]{
+		inner: Vector[T]{
+			mem: elements,
+		},
+	}
+	tiny.init()
+	return tiny
+}
+
+type TinySet[T OrderedMapKey] struct {
+	inner Vector[T]
+}
+
+func (tiny *TinySet[T]) init() {
+	tiny.inner.SortBy(func(l, r T) bool {
+		return l < r
+	})
+}
+
+func (tiny *TinySet[T]) Len() int {
+	return tiny.inner.Len()
+}
+
+func (tiny *TinySet[T]) Add(element T) {
+	i := sort.Search(tiny.Len(), func(i int) bool {
+		return tiny.inner.mem[i] >= element
+	})
+	if i < tiny.Len() && tiny.inner.mem[i] == element {
+		return
+	} else {
+		tiny.inner.Insert(i, element)
+	}
+}
+
+func (tiny *TinySet[T]) Contains(element T) bool {
+	i := sort.Search(tiny.Len(), func(i int) bool {
+		return tiny.inner.mem[i] >= element
+	})
+	return i < tiny.Len() && tiny.inner.mem[i] == element
 }
