@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	ExprErrorIdent = "error"
+	ExprErrorIdent   = "error"
+	ExprContextIdent = "Context"
 )
 
 var (
@@ -76,6 +77,10 @@ func checkInput(method *ast.FuncType) bool {
 func checkErrorType(expr ast.Expr) bool {
 	ident, ok := expr.(*ast.Ident)
 	return ok && ident.Name == ExprErrorIdent
+}
+
+func isContextType(expr ast.Expr, src []byte) bool {
+	return strings.Contains(getRepr(expr, src), ExprContextIdent)
 }
 
 func nodeMap[T ast.Node, U any](src []T, f func(ast.Node) U) []U {

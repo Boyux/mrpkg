@@ -46,6 +46,7 @@ func genSqlx(_ *cobra.Command, _ []string) error {
 
 		if method.Ident == SqlxMethodWithTx {
 			inspectCtx.WithTx = true
+			inspectCtx.WithTxContext = method.HasContext()
 			inspectCtx.Methods = append(inspectCtx.Methods[:i], inspectCtx.Methods[i+1:]...)
 		}
 	}
@@ -72,10 +73,11 @@ func genSqlx(_ *cobra.Command, _ []string) error {
 }
 
 type SqlxContext struct {
-	Package string
-	Ident   string
-	Methods []*Method
-	WithTx  bool
+	Package       string
+	Ident         string
+	Methods       []*Method
+	WithTx        bool
+	WithTxContext bool
 }
 
 func inspectSqlx(file string, line int) (*SqlxContext, error) {
@@ -140,7 +142,9 @@ inspectType:
 	return &SqlxContext{
 		Package: PackageName,
 		Ident:   typeSpec.Name.Name,
-		Methods: nodeMap(ifaceType.Methods.List, inspectMethod),
+		Methods: nodeMap(ifaceType.Methods.List, func(node ast.Node) *Method {
+			return inspectMethod(node, FileContent)
+		}),
 	}, nil
 }
 
@@ -166,15 +170,6 @@ func readHeader(header string) (string, error) {
 		buf.WriteString("\r\n")
 	}
 	return buf.String(), nil
-}
-
-func importSql(methods []*Method) bool {
-	for _, method := range methods {
-		if method.SqlOperation() == SqlxOpExec && len(method.Out) > 1 {
-			return true
-		}
-	}
-	return false
 }
 
 func importStrings(methods []*Method) bool {
@@ -204,7 +199,6 @@ func genSqlxCode(ctx *SqlxContext) ([]byte, error) {
 		Funcs(template.FuncMap{
 			"quote":         quote,
 			"readHeader":    readHeader,
-			"importSql":     importSql,
 			"importStrings": importStrings,
 			"hasFeature":    hasFeature,
 			"isSlice":       isSlice,

@@ -20,9 +20,13 @@ type Method struct {
 	// literal sql string with '--mode=sqlx' arg
 	Header string
 
-	Ident string
-	In    map[string]ast.Expr
-	Out   []ast.Expr
+	Ident     string
+	In        map[string]ast.Expr
+	UnnamedIn []ast.Expr
+	Out       []ast.Expr
+
+	// Source represents the raw file content
+	Source []byte
 }
 
 func (method *Method) SortIn() []string {
@@ -106,13 +110,31 @@ func (method *Method) SqlFeatures() []string {
 	return nil
 }
 
+func (method *Method) HasContext() bool {
+	for name, ty := range method.In {
+		if name == "ctx" && isContextType(ty, method.Source) {
+			return true
+		}
+	}
+
+	// for sqlx WithTxContext, we should consider unnamed arguments
+	for _, ty := range method.UnnamedIn {
+		if isContextType(ty, method.Source) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (method *Method) ReturnSlice() bool {
 	return len(method.Out) > 1 && isSlice(method.Out[0])
 }
 
-func inspectMethod(node ast.Node) (method *Method) {
+func inspectMethod(node ast.Node, source []byte) (method *Method) {
 	field := node.(*ast.Field)
 	method = new(Method)
+	method.Source = source
 	if field.Doc != nil {
 		method.Meta = trimSpace(
 			trimPrefix(field.Doc.List[0].Text,
@@ -146,8 +168,12 @@ func inspectMethod(node ast.Node) (method *Method) {
 	inParams := funcType.Params.List
 	method.In = make(map[string]ast.Expr, len(inParams))
 	for _, param := range inParams {
-		for _, name := range param.Names {
-			method.In[name.Name] = param.Type
+		if param.Names != nil {
+			for _, name := range param.Names {
+				method.In[name.Name] = param.Type
+			}
+		} else {
+			method.UnnamedIn = append(method.UnnamedIn, param.Type)
 		}
 	}
 	if funcType.Results != nil {

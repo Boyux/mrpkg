@@ -7,12 +7,11 @@ import (
 "fmt"
 "bytes"
 "strconv"
-{{ if importSql $.Methods -}}
-    "database/sql"
-{{- end }}
+"database/sql"
 {{ if importStrings $.Methods -}}
     "strings"
 {{- end }}
+"context"
 "text/template"
 "github.com/jmoiron/sqlx"
 "github.com/Boyux/mrpkg"
@@ -38,10 +37,15 @@ type {{ $impName }} struct {
 withTx bool
 Core interface{
 Beginx() (*sqlx.Tx, error)
+BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error)
 PrepareNamed(query string) (*sqlx.NamedStmt, error)
+PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
 Exec(query string, args ...interface{}) (sql.Result, error)
+ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 Get(dest interface{}, query string, args ...interface{}) error
+GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 Select(dest interface{}, query string, args ...interface{}) error
+SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 }
 }
 
@@ -99,7 +103,7 @@ Select(dest interface{}, query string, args ...interface{}) error
 
     {{ if isExec $method.SqlOperation }}
         {{- $tx := printf "tx%s" $method.Ident -}}
-        {{ $tx }}, {{ $err }} := imp.Core.Beginx()
+        {{ $tx }}, {{ $err }} := imp.Core.Begin{{ if $method.HasContext }}Tx{{ end }}x({{ if $method.HasContext }}ctx, nil{{ end }})
         if {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -141,7 +145,7 @@ Select(dest interface{}, query string, args ...interface{}) error
         {{- $execResult := printf "v0%s" $method.Ident }}
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $stmt := printf "stmt%s" $method.Ident }}
-            {{ $stmt }}, {{ $err }} := {{ $tx }}.PrepareNamed({{ $splitSql }})
+            {{ $stmt }}, {{ $err }} := {{ $tx }}.PrepareNamed{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $splitSql }})
             if {{ $err }} != nil {
             return {{ range $index, $type := $method.Out -}}
                 {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -150,9 +154,9 @@ Select(dest interface{}, query string, args ...interface{}) error
             {{- end -}} fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
             }
 
-            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $stmt }}.Exec({{ $args }}); {{ $err }} != nil {
+            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $stmt }}.Exec{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $args }}); {{ $err }} != nil {
         {{ else }}
-            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $tx }}.Exec({{ $splitSql }}, {{ $args }}[{{ $offset }}:{{ $offset }}+{{ $count }}]...); {{ $err }} != nil {
+            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $tx }}.Exec{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $splitSql }}, {{ $args }}[{{ $offset }}:{{ $offset }}+{{ $count }}]...); {{ $err }} != nil {
         {{ end -}}
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -196,7 +200,7 @@ Select(dest interface{}, query string, args ...interface{}) error
 
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $stmt := printf "stmt%s" $method.Ident }}
-            {{ $stmt }}, {{ $err }} := imp.Core.PrepareNamed({{ $sqlQuery }})
+            {{ $stmt }}, {{ $err }} := imp.Core.PrepareNamed{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $sqlQuery }})
             if {{ $err }} != nil {
             return {{ range $index, $type := $method.Out -}}
                 {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -204,9 +208,9 @@ Select(dest interface{}, query string, args ...interface{}) error
                 {{- end -}}
             {{- end -}} fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
             }
-            if {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $args }}); {{ $err }} != nil {
+            if {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $args }}); {{ $err }} != nil {
         {{ else }}
-            if {{ $err }} = imp.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}(&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...); {{ $err }} != nil {
+            if {{ $err }} = imp.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...); {{ $err }} != nil {
         {{ end -}}
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -226,6 +230,16 @@ Select(dest interface{}, query string, args ...interface{}) error
 
 {{ if $.WithTx }}
     {{ $tx := printf "tx%s" $.Ident }}
+
+    func New{{ $.Ident }}FromTx(core *sqlx.Tx) {{ $.Ident }} {
+    return &{{ $impName }}{
+    withTx: true,
+    Core: &{{ $tx }}{
+    core,
+    },
+    }
+    }
+
     type {{ $tx }} struct {
     *sqlx.Tx
     }
@@ -234,29 +248,61 @@ Select(dest interface{}, query string, args ...interface{}) error
     return tx.Tx, nil
     }
 
-    func (imp *{{ $receiver }}) WithTx(f func({{ $.Ident }}) error) error {
-    inner, err := imp.Core.Beginx()
-    if err != nil {
-    return fmt.Errorf("error creating transaction in %s: %w", strconv.Quote("WithTx"), err)
+    func (tx {{ $tx }}) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error) {
+    return tx.Tx, nil
     }
 
-    defer inner.Rollback()
+    {{ if $.WithTxContext }}
+        func (imp *{{ $receiver }}) WithTx(ctx context.Context, f func({{ $.Ident }}) error) error {
+        inner, err := imp.Core.BeginTxx(ctx, nil)
+        if err != nil {
+        return fmt.Errorf("error creating transaction in %s: %w", strconv.Quote("WithTx"), err)
+        }
 
-    tx := &{{ $impName }}{
-    withTx: true,
-    Core: &{{ $tx }}{
-    inner,
-    },
-    }
+        defer inner.Rollback()
 
-    if err = f(tx); err != nil {
-    return err
-    }
+        tx := &{{ $impName }}{
+        withTx: true,
+        Core: &{{ $tx }}{
+        inner,
+        },
+        }
 
-    if err = inner.Commit(); err != nil {
-    return fmt.Errorf("error committing transaction in %s: %w", strconv.Quote("WithTx"), err)
-    }
+        if err = f(tx); err != nil {
+        return err
+        }
 
-    return nil
-    }
+        if err = inner.Commit(); err != nil {
+        return fmt.Errorf("error committing transaction in %s: %w", strconv.Quote("WithTx"), err)
+        }
+
+        return nil
+        }
+    {{ else }}
+        func (imp *{{ $receiver }}) WithTx(f func({{ $.Ident }}) error) error {
+        inner, err := imp.Core.Beginx()
+        if err != nil {
+        return fmt.Errorf("error creating transaction in %s: %w", strconv.Quote("WithTx"), err)
+        }
+
+        defer inner.Rollback()
+
+        tx := &{{ $impName }}{
+        withTx: true,
+        Core: &{{ $tx }}{
+        inner,
+        },
+        }
+
+        if err = f(tx); err != nil {
+        return err
+        }
+
+        if err = inner.Commit(); err != nil {
+        return fmt.Errorf("error committing transaction in %s: %w", strconv.Quote("WithTx"), err)
+        }
+
+        return nil
+        }
+    {{ end }}
 {{ end }}

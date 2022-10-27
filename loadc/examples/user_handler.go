@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/Boyux/mrpkg"
@@ -29,14 +30,19 @@ type implUserHandler struct {
 	withTx bool
 	Core   interface {
 		Beginx() (*sqlx.Tx, error)
+		BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error)
 		PrepareNamed(query string) (*sqlx.NamedStmt, error)
+		PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
 		Exec(query string, args ...interface{}) (sql.Result, error)
+		ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 		Get(dest interface{}, query string, args ...interface{}) error
+		GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 		Select(dest interface{}, query string, args ...interface{}) error
+		SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	}
 }
 
-func (imp *implUserHandler) Get(id int64) (User, error) {
+func (imp *implUserHandler) Get(ctx context.Context, id int64) (User, error) {
 	var (
 		v0Get  User
 		errGet error
@@ -56,17 +62,19 @@ func (imp *implUserHandler) Get(id int64) (User, error) {
 	defer sqlGet.Reset()
 
 	if errGet = sqlTmplGet.Execute(sqlGet, map[string]any{
-		"id": id,
+		"ctx": ctx,
+		"id":  id,
 	}); errGet != nil {
 		return v0Get, fmt.Errorf("error executing %s template: %w", strconv.Quote("Get"), errGet)
 	}
 
 	sqlQueryGet := strings.TrimSpace(sqlGet.String())
 	argsGet := mrpkg.MergeArgs(
+		ctx,
 		id,
 	)
 
-	if errGet = imp.Core.Get(&v0Get, sqlQueryGet, argsGet...); errGet != nil {
+	if errGet = imp.Core.GetContext(ctx, &v0Get, sqlQueryGet, argsGet...); errGet != nil {
 		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlQueryGet, errGet)
 	}
 
@@ -114,7 +122,7 @@ func (imp *implUserHandler) QueryByName(name string) ([]User, error) {
 	return v0QueryByName, nil
 }
 
-func (imp *implUserHandler) Update(user *UserUpdate) error {
+func (imp *implUserHandler) Update(ctx context.Context, user *UserUpdate) error {
 	var (
 		errUpdate error
 	)
@@ -133,12 +141,13 @@ func (imp *implUserHandler) Update(user *UserUpdate) error {
 	defer sqlUpdate.Reset()
 
 	if errUpdate = sqlTmplUpdate.Execute(sqlUpdate, map[string]any{
+		"ctx":  ctx,
 		"user": user,
 	}); errUpdate != nil {
 		return fmt.Errorf("error executing %s template: %w", strconv.Quote("Update"), errUpdate)
 	}
 
-	txUpdate, errUpdate := imp.Core.Beginx()
+	txUpdate, errUpdate := imp.Core.BeginTxx(ctx, nil)
 	if errUpdate != nil {
 		return fmt.Errorf("error creating %s transaction: %w", strconv.Quote("Update"), errUpdate)
 	}
@@ -148,6 +157,7 @@ func (imp *implUserHandler) Update(user *UserUpdate) error {
 
 	offsetUpdate := 0
 	argsUpdate := mrpkg.MergeArgs(
+		ctx,
 		user,
 	)
 
@@ -159,7 +169,7 @@ func (imp *implUserHandler) Update(user *UserUpdate) error {
 
 		countUpdate := strings.Count(splitSqlUpdate, "?")
 
-		if _, errUpdate = txUpdate.Exec(splitSqlUpdate, argsUpdate[offsetUpdate:offsetUpdate+countUpdate]...); errUpdate != nil {
+		if _, errUpdate = txUpdate.ExecContext(ctx, splitSqlUpdate, argsUpdate[offsetUpdate:offsetUpdate+countUpdate]...); errUpdate != nil {
 			return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), splitSqlUpdate, errUpdate)
 		}
 
@@ -239,6 +249,15 @@ func (imp *implUserHandler) UpdateName(id int64, name string) (sql.Result, error
 	return v0UpdateName, nil
 }
 
+func NewUserHandlerFromTx(core *sqlx.Tx) UserHandler {
+	return &implUserHandler{
+		withTx: true,
+		Core: &txUserHandler{
+			core,
+		},
+	}
+}
+
 type txUserHandler struct {
 	*sqlx.Tx
 }
@@ -247,8 +266,12 @@ func (tx txUserHandler) Beginx() (*sqlx.Tx, error) {
 	return tx.Tx, nil
 }
 
-func (imp *implUserHandler) WithTx(f func(UserHandler) error) error {
-	inner, err := imp.Core.Beginx()
+func (tx txUserHandler) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error) {
+	return tx.Tx, nil
+}
+
+func (imp *implUserHandler) WithTx(ctx context.Context, f func(UserHandler) error) error {
+	inner, err := imp.Core.BeginTxx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error creating transaction in %s: %w", strconv.Quote("WithTx"), err)
 	}

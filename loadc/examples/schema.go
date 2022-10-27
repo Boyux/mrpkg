@@ -1,6 +1,9 @@
 package main
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+)
 
 type User struct {
 	Id   int64
@@ -28,11 +31,11 @@ func (update *UserUpdate) ToArgs() []any {
 
 //go:generate go run "github.com/Boyux/mrpkg/loadc" --mode=sqlx --output=user_handler.go
 type UserHandler interface {
-	WithTx(func(UserHandler) error) error
+	WithTx(context.Context, func(UserHandler) error) error
 
 	// Get QUERY
 	// include sql/get_user.sql
-	Get(id int64) (User, error)
+	Get(ctx context.Context, id int64) (User, error)
 
 	// QueryByName QUERY NAMED
 	// SELECT
@@ -45,7 +48,7 @@ type UserHandler interface {
 
 	// Update EXEC
 	// UPDATE user SET name = ? WHERE id = ?;
-	Update(user *UserUpdate) error
+	Update(ctx context.Context, user *UserUpdate) error
 
 	// UpdateName EXEC NAMED
 	// UPDATE user SET name = :name WHERE id = :id;
@@ -88,8 +91,8 @@ func main() {
 	var user User
 
 	userHandler := NewUserHandler("driver", "source")
-	user, _ = userHandler.Get(1)
-	userHandler.Update(user.Update())
+	user, _ = userHandler.Get(context.Background(), 1)
+	userHandler.Update(context.Background(), user.Update())
 	userHandler.UpdateName(user.Id, user.Name)
 
 	userService := NewUserService(&Inner{Host: "host"})

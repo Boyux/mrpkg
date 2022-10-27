@@ -237,7 +237,9 @@ inspectType:
 		Package:  PackageName,
 		Ident:    typeSpec.Name.Name,
 		Generics: generics,
-		Methods:  nodeMap(ifaceType.Methods.List, inspectMethod),
+		Methods: nodeMap(ifaceType.Methods.List, func(node ast.Node) *Method {
+			return inspectMethod(node, FileContent)
+		}),
 		Features: apiFeatures,
 	}, nil
 }
@@ -263,6 +265,15 @@ func checkResponseType(method *Method) bool {
 func hasInner(methods []*Method) bool {
 	for _, method := range methods {
 		if method.Ident == MethodInner {
+			return true
+		}
+	}
+	return false
+}
+
+func importContext(methods []*Method) bool {
+	for _, method := range methods {
+		if method.HasContext() {
 			return true
 		}
 	}
