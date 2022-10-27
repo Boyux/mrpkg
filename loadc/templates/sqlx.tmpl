@@ -120,14 +120,18 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $args }} := mrpkg.MergeNamedArgs(map[string]any{
             {{ range $index, $ident := $sortIn -}}
-                {{- quote $ident }}: {{ $ident -}},
+                {{ if not (isContextType $ident (index $method.In $ident)) -}}
+                    {{- quote $ident }}: {{ $ident -}},
+                {{ end -}}
             {{ end }}
             })
         {{ else }}
             {{ $offset }} := 0
             {{ $args }} := mrpkg.MergeArgs(
             {{ range $index, $ident := $sortIn -}}
-                {{- $ident -}},
+                {{ if not (isContextType $ident (index $method.In $ident)) -}}
+                    {{- $ident -}},
+                {{ end -}}
             {{ end }}
             )
         {{ end }}
@@ -187,13 +191,17 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $args }} := mrpkg.MergeNamedArgs(map[string]any{
             {{ range $index, $ident := $sortIn -}}
-                {{- quote $ident }}: {{ $ident -}},
+                {{ if not (isContextType $ident (index $method.In $ident)) -}}
+                    {{- quote $ident }}: {{ $ident -}},
+                {{ end -}}
             {{ end }}
             })
         {{ else }}
             {{ $args }} := mrpkg.MergeArgs(
             {{ range $index, $ident := $sortIn -}}
-                {{- $ident -}},
+                {{ if not (isContextType $ident (index $method.In $ident)) -}}
+                    {{- $ident -}},
+                {{ end -}}
             {{ end }}
             )
         {{ end }}

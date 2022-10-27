@@ -70,7 +70,6 @@ func (imp *implUserHandler) Get(ctx context.Context, id int64) (User, error) {
 
 	sqlQueryGet := strings.TrimSpace(sqlGet.String())
 	argsGet := mrpkg.MergeArgs(
-		ctx,
 		id,
 	)
 
@@ -157,7 +156,6 @@ func (imp *implUserHandler) Update(ctx context.Context, user *UserUpdate) error 
 
 	offsetUpdate := 0
 	argsUpdate := mrpkg.MergeArgs(
-		ctx,
 		user,
 	)
 
@@ -185,7 +183,7 @@ func (imp *implUserHandler) Update(ctx context.Context, user *UserUpdate) error 
 	return nil
 }
 
-func (imp *implUserHandler) UpdateName(id int64, name string) (sql.Result, error) {
+func (imp *implUserHandler) UpdateName(ctx context.Context, id int64, name string) (sql.Result, error) {
 	var (
 		v0UpdateName  sql.Result
 		errUpdateName error
@@ -205,13 +203,14 @@ func (imp *implUserHandler) UpdateName(id int64, name string) (sql.Result, error
 	defer sqlUpdateName.Reset()
 
 	if errUpdateName = sqlTmplUpdateName.Execute(sqlUpdateName, map[string]any{
+		"ctx":  ctx,
 		"id":   id,
 		"name": name,
 	}); errUpdateName != nil {
 		return v0UpdateName, fmt.Errorf("error executing %s template: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
 
-	txUpdateName, errUpdateName := imp.Core.Beginx()
+	txUpdateName, errUpdateName := imp.Core.BeginTxx(ctx, nil)
 	if errUpdateName != nil {
 		return v0UpdateName, fmt.Errorf("error creating %s transaction: %w", strconv.Quote("UpdateName"), errUpdateName)
 	}
@@ -230,12 +229,12 @@ func (imp *implUserHandler) UpdateName(id int64, name string) (sql.Result, error
 			continue
 		}
 
-		stmtUpdateName, errUpdateName := txUpdateName.PrepareNamed(splitSqlUpdateName)
+		stmtUpdateName, errUpdateName := txUpdateName.PrepareNamedContext(ctx, splitSqlUpdateName)
 		if errUpdateName != nil {
 			return v0UpdateName, fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote("UpdateName"), errUpdateName)
 		}
 
-		if v0UpdateName, errUpdateName = stmtUpdateName.Exec(argsUpdateName); errUpdateName != nil {
+		if v0UpdateName, errUpdateName = stmtUpdateName.ExecContext(ctx, argsUpdateName); errUpdateName != nil {
 			return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), splitSqlUpdateName, errUpdateName)
 		}
 	}

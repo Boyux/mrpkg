@@ -111,15 +111,15 @@ func (method *Method) SqlFeatures() []string {
 }
 
 func (method *Method) HasContext() bool {
-	for name, ty := range method.In {
-		if name == "ctx" && isContextType(ty, method.Source) {
+	for ident, ty := range method.In {
+		if isContextType(ident, ty, method.Source) {
 			return true
 		}
 	}
 
 	// for sqlx WithTxContext, we should consider unnamed arguments
 	for _, ty := range method.UnnamedIn {
-		if isContextType(ty, method.Source) {
+		if isContextType("", ty, method.Source) {
 			return true
 		}
 	}

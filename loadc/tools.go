@@ -79,8 +79,8 @@ func checkErrorType(expr ast.Expr) bool {
 	return ok && ident.Name == ExprErrorIdent
 }
 
-func isContextType(expr ast.Expr, src []byte) bool {
-	return strings.Contains(getRepr(expr, src), ExprContextIdent)
+func isContextType(ident string, expr ast.Expr, src []byte) bool {
+	return ident == "ctx" || strings.Contains(getRepr(expr, src), ExprContextIdent)
 }
 
 func nodeMap[T ast.Node, U any](src []T, f func(ast.Node) U) []U {

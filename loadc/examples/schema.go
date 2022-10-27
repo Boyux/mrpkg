@@ -52,7 +52,7 @@ type UserHandler interface {
 
 	// UpdateName EXEC NAMED
 	// UPDATE user SET name = :name WHERE id = :id;
-	UpdateName(id int64, name string) (sql.Result, error)
+	UpdateName(ctx context.Context, id int64, name string) (sql.Result, error)
 }
 
 type Inner struct {
@@ -93,7 +93,7 @@ func main() {
 	userHandler := NewUserHandler("driver", "source")
 	user, _ = userHandler.Get(context.Background(), 1)
 	userHandler.Update(context.Background(), user.Update())
-	userHandler.UpdateName(user.Id, user.Name)
+	userHandler.UpdateName(context.Background(), user.Id, user.Name)
 
 	userService := NewUserService(&Inner{Host: "host"})
 	user, _ = userService.GetUser(context.Background(), 1)
