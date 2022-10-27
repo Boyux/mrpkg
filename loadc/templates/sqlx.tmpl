@@ -114,11 +114,11 @@ Select(dest interface{}, query string, args ...interface{}) error
         {{ $offset := printf "offset%s" $method.Ident }}
         {{ $args := printf "args%s" $method.Ident -}}
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
-            {{ $args }} := map[string]any{
+            {{ $args }} := mrpkg.MergeNamedArgs(map[string]any{
             {{ range $index, $ident := $sortIn -}}
                 {{- quote $ident }}: {{ $ident -}},
             {{ end }}
-            }
+            })
         {{ else }}
             {{ $offset }} := 0
             {{ $args }} := mrpkg.MergeArgs(
@@ -181,11 +181,11 @@ Select(dest interface{}, query string, args ...interface{}) error
         {{ $sqlQuery }} := strings.TrimSpace({{ $sql }}.String())
         {{- $args := printf "args%s" $method.Ident -}}
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
-            {{ $args }} := map[string]any{
+            {{ $args }} := mrpkg.MergeNamedArgs(map[string]any{
             {{ range $index, $ident := $sortIn -}}
                 {{- quote $ident }}: {{ $ident -}},
             {{ end }}
-            }
+            })
         {{ else }}
             {{ $args }} := mrpkg.MergeArgs(
             {{ range $index, $ident := $sortIn -}}

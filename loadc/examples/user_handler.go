@@ -99,9 +99,9 @@ func (imp *implUserHandler) QueryByName(name string) ([]User, error) {
 	}
 
 	sqlQueryQueryByName := strings.TrimSpace(sqlQueryByName.String())
-	argsQueryByName := map[string]any{
+	argsQueryByName := mrpkg.MergeNamedArgs(map[string]any{
 		"name": name,
-	}
+	})
 
 	stmtQueryByName, errQueryByName := imp.Core.PrepareNamed(sqlQueryQueryByName)
 	if errQueryByName != nil {
@@ -209,10 +209,10 @@ func (imp *implUserHandler) UpdateName(id int64, name string) (sql.Result, error
 		defer txUpdateName.Rollback()
 	}
 
-	argsUpdateName := map[string]any{
+	argsUpdateName := mrpkg.MergeNamedArgs(map[string]any{
 		"id":   id,
 		"name": name,
-	}
+	})
 
 	for _, splitSqlUpdateName := range strings.Split(sqlUpdateName.String(), ";") {
 		splitSqlUpdateName = strings.TrimSpace(splitSqlUpdateName)

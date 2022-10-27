@@ -86,6 +86,40 @@ func MergeArgs(args ...any) []any {
 	return dst
 }
 
+type ToNamedArgs interface {
+	ToNamedArgs() map[string]any
+}
+
+func MergeNamedArgs(argsMap map[string]any) map[string]any {
+	namedMap := make(map[string]any, len(argsMap))
+	for name, arg := range argsMap {
+		rv := reflect.ValueOf(arg)
+		if toNamedArgs, ok := arg.(ToNamedArgs); ok {
+			for k, v := range toNamedArgs.ToNamedArgs() {
+				namedMap[k] = v
+			}
+		} else if rv.Kind() == reflect.Map {
+			iter := rv.MapRange()
+			for iter.Next() {
+				k, v := iter.Key(), iter.Value()
+				if k.Kind() == reflect.String {
+					namedMap[k.String()] = v.Interface()
+				}
+			}
+		} else if rv.Kind() == reflect.Struct {
+			rt := rv.Type()
+			for i := 0; i < rt.NumField(); i++ {
+				if tag, ok := rt.Field(i).Tag.Lookup("db"); ok {
+					namedMap[tag] = rv.Field(i).Interface()
+				}
+			}
+		} else {
+			namedMap[name] = arg
+		}
+	}
+	return namedMap
+}
+
 func GenBindVars(data any) string {
 	var n int
 	switch rv := reflect.ValueOf(data); rv.Kind() {
