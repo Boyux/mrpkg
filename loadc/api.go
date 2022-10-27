@@ -287,7 +287,8 @@ func genApiCode(ctx *ApiContext) ([]byte, error) {
 	tmpl, err := template.
 		New("loadc(api)").
 		Funcs(template.FuncMap{
-			"quote": quote,
+			"quote":         quote,
+			"importContext": importContext,
 			"sub": func(x, y int) int {
 				return x - y
 			},

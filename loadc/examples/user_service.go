@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/Boyux/mrpkg"
 	"io"
@@ -29,13 +30,13 @@ func (implUserService) Response() *UserResponse {
 	return new(UserResponse)
 }
 
-func (imp implUserService) GetUser(id int64) (User, error) {
+func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) {
 	var innerGetUser any = imp.inner
 
 	if cacheGetUser, okGetUser := innerGetUser.(interface {
 		GetCache(string, ...any) []any
 	}); okGetUser {
-		if cacheValuesGetUser := cacheGetUser.GetCache("GetUser", id); cacheValuesGetUser != nil {
+		if cacheValuesGetUser := cacheGetUser.GetCache("GetUser", ctx, id); cacheValuesGetUser != nil {
 			return cacheValuesGetUser[0].(User), nil
 		}
 	}
@@ -66,13 +67,14 @@ func (imp implUserService) GetUser(id int64) (User, error) {
 	if errGetUser = template.Must(addrTmplGetUser.Parse("{{ $.UserService.Host }}/user/{{ $.id }}")).
 		Execute(addrGetUser, map[string]any{
 			"UserService": imp.inner,
+			"ctx":         ctx,
 			"id":          id,
 		}); errGetUser != nil {
 		return v0GetUser, fmt.Errorf("error building 'GetUser' url: %w", errGetUser)
 	}
 
 	urlGetUser := addrGetUser.String()
-	requestGetUser, errGetUser := http.NewRequest("GET", urlGetUser, http.NoBody)
+	requestGetUser, errGetUser := http.NewRequestWithContext(ctx, "GET", urlGetUser, http.NoBody)
 	if errGetUser != nil {
 		return v0GetUser, fmt.Errorf("error building 'GetUser' request: %w", errGetUser)
 	}
@@ -110,7 +112,7 @@ func (imp implUserService) GetUser(id int64) (User, error) {
 	}); okGetUser {
 		cacheGetUser.SetCache(
 			"GetUser",
-			[]any{id},
+			[]any{ctx, id},
 			v0GetUser)
 	}
 

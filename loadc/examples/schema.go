@@ -72,7 +72,7 @@ type UserService interface {
 	Response() *UserResponse
 
 	// GetUser GET {{ $.UserService.Host }}/user/{{ $.id }}
-	GetUser(id int64) (User, error)
+	GetUser(ctx context.Context, id int64) (User, error)
 
 	// GetUsers GET {{ $.UserService.Host }}/users?{{ range $index, $id := $.ids }}{{ if gt $index 0 }}&{{ end }}$id{{ end }}
 	GetUsers(ids ...int64) ([]User, error)
@@ -96,6 +96,6 @@ func main() {
 	userHandler.UpdateName(user.Id, user.Name)
 
 	userService := NewUserService(&Inner{Host: "host"})
-	user, _ = userService.GetUser(1)
+	user, _ = userService.GetUser(context.Background(), 1)
 	userService.UpdateUser(&user)
 }
