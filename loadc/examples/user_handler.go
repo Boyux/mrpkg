@@ -26,6 +26,23 @@ func NewUserHandlerFromDB(core *sqlx.DB) UserHandler {
 	}
 }
 
+func NewUserHandlerFromCore(core interface {
+	Beginx() (*sqlx.Tx, error)
+	BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error)
+	PrepareNamed(query string) (*sqlx.NamedStmt, error)
+	PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	Get(dest interface{}, query string, args ...interface{}) error
+	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	Select(dest interface{}, query string, args ...interface{}) error
+	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+}) UserHandler {
+	return &implUserHandler{
+		Core: core,
+	}
+}
+
 type implUserHandler struct {
 	withTx bool
 	Core   interface {
