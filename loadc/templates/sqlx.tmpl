@@ -285,17 +285,23 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 {{ if $.WithTx }}
     {{ $tx := printf "tx%s" $.Ident }}
 
-    func New{{ $.Ident }}FromTx(core *sqlx.Tx) {{ $.Ident }} {
+    func New{{ $.Ident }}FromTx{{ if $.HasFeature "sqlx/log" }}AndLog{{ end }}(core *sqlx.Tx{{ if $.HasFeature "sqlx/log" }}, log interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) } {{ end }}) {{ $.Ident }} {
     return &{{ $impName }}{
     withTx: true,
     Core: &{{ $tx }}{
-    core,
+    Tx: core,
+    {{ if $.HasFeature "sqlx/log" -}}
+        log: log,
+    {{- end }}
     },
     }
     }
 
     type {{ $tx }} struct {
     *sqlx.Tx
+    log interface {
+    Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
+    }
     }
 
     func (tx {{ $tx }}) Beginx() (*sqlx.Tx, error) {
@@ -306,6 +312,14 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
     return tx.Tx, nil
     }
 
+    {{ if $.HasFeature "sqlx/log" -}}
+        func (tx {{ $tx }}) Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) {
+        if tx.log != nil {
+        tx.log.Log(ctx, caller, query, args, elapse)
+        }
+        }
+    {{- end }}
+
     {{ if $.WithTxContext }}
         func (imp *{{ $receiver }}) WithTx(ctx context.Context, f func({{ $.Ident }}) error) error {
         inner, err := imp.Core.BeginTxx(ctx, nil)
@@ -315,11 +329,17 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 
         defer inner.Rollback()
 
+        core := &{{ $tx }}{
+        Tx: inner,
+        }
+
+        if log, ok := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); ok {
+        core.log = log
+        }
+
         tx := &{{ $impName }}{
         withTx: true,
-        Core: &{{ $tx }}{
-        inner,
-        },
+        Core: core,
         }
 
         if err = f(tx); err != nil {
@@ -341,11 +361,17 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 
         defer inner.Rollback()
 
+        core := &{{ $tx }}{
+        Tx: inner,
+        }
+
+        if log, ok := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); ok {
+        core.log = log
+        }
+
         tx := &{{ $impName }}{
         withTx: true,
-        Core: &{{ $tx }}{
-        inner,
-        },
+        Core: core,
         }
 
         if err = f(tx); err != nil {

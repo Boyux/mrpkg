@@ -299,17 +299,23 @@ func (imp *implUserHandler) UpdateName(ctx context.Context, id int64, name strin
 	return v0UpdateName, nil
 }
 
-func NewUserHandlerFromTx(core *sqlx.Tx) UserHandler {
+func NewUserHandlerFromTxAndLog(core *sqlx.Tx, log interface {
+	Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
+}) UserHandler {
 	return &implUserHandler{
 		withTx: true,
 		Core: &txUserHandler{
-			core,
+			Tx:  core,
+			log: log,
 		},
 	}
 }
 
 type txUserHandler struct {
 	*sqlx.Tx
+	log interface {
+		Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
+	}
 }
 
 func (tx txUserHandler) Beginx() (*sqlx.Tx, error) {
@@ -320,6 +326,12 @@ func (tx txUserHandler) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sql
 	return tx.Tx, nil
 }
 
+func (tx txUserHandler) Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) {
+	if tx.log != nil {
+		tx.log.Log(ctx, caller, query, args, elapse)
+	}
+}
+
 func (imp *implUserHandler) WithTx(ctx context.Context, f func(UserHandler) error) error {
 	inner, err := imp.Core.BeginTxx(ctx, nil)
 	if err != nil {
@@ -328,11 +340,19 @@ func (imp *implUserHandler) WithTx(ctx context.Context, f func(UserHandler) erro
 
 	defer inner.Rollback()
 
+	core := &txUserHandler{
+		Tx: inner,
+	}
+
+	if log, ok := imp.Core.(interface {
+		Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
+	}); ok {
+		core.log = log
+	}
+
 	tx := &implUserHandler{
 		withTx: true,
-		Core: &txUserHandler{
-			inner,
-		},
+		Core:   core,
 	}
 
 	if err = f(tx); err != nil {
