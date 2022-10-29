@@ -6,6 +6,9 @@ package {{ $.Package }}
 import (
 "fmt"
 "bytes"
+{{ if $.HasFeature "sqlx/log" -}}
+    "time"
+{{- end }}
 "strconv"
 "database/sql"
 {{ if importStrings $.Methods -}}
@@ -118,6 +121,10 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
     {{- end -}} fmt.Errorf("error executing %s template: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
     }
 
+    {{- $log := printf "log%s" $method.Ident }}
+    {{- $ok := printf "ok%s" $method.Ident }}
+    {{- $start := printf "start%s" $method.Ident }}
+
     {{ if isExec $method.SqlOperation }}
         {{- $tx := printf "tx%s" $method.Ident -}}
         {{ $tx }}, {{ $err }} := imp.Core.Begin{{ if $method.HasContext }}Tx{{ end }}x({{ if $method.HasContext }}ctx, nil{{ end }})
@@ -163,6 +170,11 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
         {{ if not (hasFeature ($method.SqlFeatures) "NAMED") }}
             {{ $count }} := strings.Count({{ $splitSql }}, "?")
         {{ end }}
+
+        {{ if $.HasFeature "sqlx/log" -}}
+            {{ $start }} := time.Now()
+        {{- end }}
+
         {{- $execResult := printf "v0%s" $method.Ident }}
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $stmt := printf "stmt%s" $method.Ident }}
@@ -185,6 +197,13 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
             {{- end -}}
         {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $splitSql }}, {{ $err }})
         }
+
+        {{ if $.HasFeature "sqlx/log" -}}
+            if {{ $log }}, {{ $ok }} := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); {{ $ok }} {
+            {{ $log }}.Log({{ if $method.HasContext }}ctx{{ else }}context.Background(){{ end }}, {{ quote $method.Ident }}, {{ $splitSql }}, {{ $args }}, time.Since({{ $start }}))
+            }
+        {{- end }}
+
         {{ if not (hasFeature ($method.SqlFeatures) "NAMED") }}
             {{ $offset }} += {{ $count }}
         {{ end -}}
@@ -223,6 +242,10 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
             )
         {{ end }}
 
+        {{ if $.HasFeature "sqlx/log" -}}
+            {{ $start }} := time.Now()
+        {{- end }}
+
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $stmt := printf "stmt%s" $method.Ident }}
             {{ $stmt }}, {{ $err }} := imp.Core.PrepareNamed{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $sqlQuery }})
@@ -243,6 +266,12 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
             {{- end -}}
         {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $sqlQuery }}, {{ $err }})
         }
+
+        {{ if $.HasFeature "sqlx/log" -}}
+            if {{ $log }}, {{ $ok }} := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); {{ $ok }} {
+            {{ $log }}.Log({{ if $method.HasContext }}ctx{{ else }}context.Background(){{ end }}, {{ quote $method.Ident }}, {{ $sqlQuery }}, {{ $args }}, time.Since({{ $start }}))
+            }
+        {{- end }}
     {{ end }}
 
     return {{ range $index, $type := $method.Out -}}

@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	MethodInner    = "Inner"
-	MethodResponse = "Response"
+	ApiMethodInner    = "Inner"
+	ApiMethodResponse = "Response"
 
-	FeatureCache = "api/cache"
+	FeatureApiCache = "api/cache"
 )
 
 func genApi(_ *cobra.Command, _ []string) error {
@@ -30,30 +30,30 @@ func genApi(_ *cobra.Command, _ []string) error {
 	}
 
 	if !checkResponse(inspectCtx.Methods) {
-		return fmt.Errorf("checkResponse: no '%s() T' method found in Interface", MethodResponse)
+		return fmt.Errorf("checkResponse: no '%s() T' method found in Interface", ApiMethodResponse)
 	}
 
 	for _, method := range inspectCtx.Methods {
-		if method.Ident != MethodResponse && method.Ident != MethodInner {
+		if method.Ident != ApiMethodResponse && method.Ident != ApiMethodInner {
 			if l := len(method.Out); l == 0 || !checkErrorType(method.Out[l-1]) {
 				return fmt.Errorf("checkErrorType: no 'error' found in method %s returned value",
 					quote(method.Ident))
 			}
 		}
 
-		if (method.Ident == MethodResponse || method.Ident == MethodInner) &&
+		if (method.Ident == ApiMethodResponse || method.Ident == ApiMethodInner) &&
 			(len(method.In) != 0 || len(method.Out) != 1) {
 			return fmt.Errorf(
 				"%s method can only have no income params "+
 					"and 1 returned value", quote(method.Ident))
 		}
 
-		if method.Ident == MethodResponse {
+		if method.Ident == ApiMethodResponse {
 			if !checkResponseType(method) {
 				return fmt.Errorf(
 					"checkResponseType: returned type of %s "+
 						"should be kind of *ast.Ident or *ast.StarExpr",
-					quote(MethodResponse))
+					quote(ApiMethodResponse))
 			}
 		}
 
@@ -151,7 +151,7 @@ func (ctx *ApiContext) HasInner() bool {
 
 func (ctx *ApiContext) InnerType() ast.Node {
 	for _, method := range ctx.Methods {
-		if method.Ident == MethodInner {
+		if method.Ident == ApiMethodInner {
 			return method.Out[0]
 		}
 	}
@@ -246,7 +246,7 @@ inspectType:
 
 func checkResponse(methods []*Method) bool {
 	for _, method := range methods {
-		if method.Ident == MethodResponse {
+		if method.Ident == ApiMethodResponse {
 			return true
 		}
 	}
@@ -264,7 +264,7 @@ func checkResponseType(method *Method) bool {
 
 func hasInner(methods []*Method) bool {
 	for _, method := range methods {
-		if method.Ident == MethodInner {
+		if method.Ident == ApiMethodInner {
 			return true
 		}
 	}
@@ -296,13 +296,13 @@ func genApiCode(ctx *ApiContext) ([]byte, error) {
 				return getRepr(node, FileContent)
 			},
 			"methodResp": func() string {
-				return MethodResponse
+				return ApiMethodResponse
 			},
 			"isResponse": func(ident string) bool {
-				return ident == MethodResponse
+				return ident == ApiMethodResponse
 			},
 			"isInner": func(ident string) bool {
-				return ident == MethodInner
+				return ident == ApiMethodInner
 			},
 			"newType": func(expr ast.Expr) string {
 				return newType(expr, FileContent)

@@ -29,7 +29,7 @@ func (update *UserUpdate) ToArgs() []any {
 	}
 }
 
-//go:generate go run "github.com/Boyux/mrpkg/loadc" --mode=sqlx --output=user_handler.go
+//go:generate go run "github.com/Boyux/mrpkg/loadc" --mode=sqlx --features=sqlx/log --output=user_handler.go
 type UserHandler interface {
 	WithTx(context.Context, func(UserHandler) error) error
 

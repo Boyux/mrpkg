@@ -24,6 +24,8 @@ const (
 	SqlxMethodWithTx = "WithTx"
 
 	SqlxCmdInclude = "INCLUDE"
+
+	FeatureSqlxLog = "sqlx/log"
 )
 
 func genSqlx(_ *cobra.Command, _ []string) error {
@@ -78,6 +80,16 @@ type SqlxContext struct {
 	Methods       []*Method
 	WithTx        bool
 	WithTxContext bool
+	Features      []string
+}
+
+func (ctx *SqlxContext) HasFeature(feature string) bool {
+	for _, current := range ctx.Features {
+		if current == feature {
+			return true
+		}
+	}
+	return false
 }
 
 func inspectSqlx(file string, line int) (*SqlxContext, error) {
@@ -139,12 +151,20 @@ inspectType:
 		}
 	}
 
+	sqlxFeatures := make([]string, 0, len(features))
+	for _, feature := range features {
+		if hasPrefix(feature, "sqlx") {
+			sqlxFeatures = append(sqlxFeatures, feature)
+		}
+	}
+
 	return &SqlxContext{
 		Package: PackageName,
 		Ident:   typeSpec.Name.Name,
 		Methods: nodeMap(ifaceType.Methods.List, func(node ast.Node) *Method {
 			return inspectMethod(node, FileContent)
 		}),
+		Features: sqlxFeatures,
 	}, nil
 }
 

@@ -38,7 +38,7 @@ var (
 
 var loadc = &cobra.Command{
 	Use:     "loadc",
-	Version: "v0.2.18",
+	Version: "v0.3.1",
 	Args: func(cmd *cobra.Command, args []string) error {
 		switch mode {
 		case ModeSql:
@@ -70,7 +70,8 @@ var loadc = &cobra.Command{
 }
 
 var validFeatures = []string{
-	FeatureCache,
+	FeatureApiCache,
+	FeatureSqlxLog,
 }
 
 func checkFeatures(features []string) error {
