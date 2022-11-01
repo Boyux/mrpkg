@@ -66,7 +66,7 @@ func (*UserResponse) ScanValues(...any) error        { panic("unimplemented") }
 func (*UserResponse) FromBytes(string, []byte) error { panic("unimplemented") }
 func (*UserResponse) Break() bool                    { panic("unimplemented") }
 
-//go:generate go run "github.com/Boyux/mrpkg/loadc" --mode=api --features=api/cache --output=user_service.go
+//go:generate go run "github.com/Boyux/mrpkg/loadc" --mode=api --features=api/cache,api/log,api/client --output=user_service.go
 type UserService interface {
 	Inner() *Inner
 	Response() *UserResponse
@@ -74,7 +74,7 @@ type UserService interface {
 	// GetUser GET {{ $.UserService.Host }}/user/{{ $.id }}
 	GetUser(ctx context.Context, id int64) (User, error)
 
-	// GetUsers GET {{ $.UserService.Host }}/users?{{ range $index, $id := $.ids }}{{ if gt $index 0 }}&{{ end }}$id{{ end }}
+	// GetUsers GET {{ $.UserService.Host }}/users?{{ range $index, $id := $.ids }}{{ if gt $index 0 }}&{{ end }}{{ $id }}{{ end }}
 	GetUsers(ids ...int64) ([]User, error)
 
 	// UpdateUser PUT {{ $.UserService.Host }}/user

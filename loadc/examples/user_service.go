@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"text/template"
+	"time"
 )
 
 func NewUserService(inner *Inner) UserService {
@@ -54,9 +55,10 @@ func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) 
 	defer responseBodyGetUser.Reset()
 
 	var (
-		v0GetUser       User
-		errGetUser      error
-		responseGetUser interface {
+		v0GetUser           User
+		errGetUser          error
+		httpResponseGetUser *http.Response
+		responseGetUser     interface {
 			Err() error
 			ScanValues(...any) error
 			FromBytes(string, []byte) error
@@ -79,9 +81,22 @@ func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) 
 		return v0GetUser, fmt.Errorf("error building 'GetUser' request: %w", errGetUser)
 	}
 
-	httpResponseGetUser, errGetUser := http.DefaultClient.Do(requestGetUser)
+	startGetUser := time.Now()
+
+	if httpClientGetUser, okGetUser := innerGetUser.(interface{ Client() *http.Client }); okGetUser {
+		httpResponseGetUser, errGetUser = httpClientGetUser.Client().Do(requestGetUser)
+	} else {
+		httpResponseGetUser, errGetUser = http.DefaultClient.Do(requestGetUser)
+	}
+
 	if errGetUser != nil {
 		return v0GetUser, fmt.Errorf("error sending 'GetUser' request: %w", errGetUser)
+	}
+
+	if logGetUser, okGetUser := innerGetUser.(interface {
+		Log(ctx context.Context, caller string, method string, url string, elapse time.Duration)
+	}); okGetUser {
+		logGetUser.Log(ctx, "GetUser", "GET", urlGetUser, time.Since(startGetUser))
 	}
 
 	if _, errGetUser = io.Copy(responseBodyGetUser, httpResponseGetUser.Body); errGetUser != nil {
@@ -98,6 +113,8 @@ func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) 
 	if errGetUser = responseGetUser.FromBytes("GetUser", responseBodyGetUser.Bytes()); errGetUser != nil {
 		return v0GetUser, fmt.Errorf("error converting 'GetUser' response: %w", errGetUser)
 	}
+
+	responseBodyGetUser.Reset()
 
 	if errGetUser = responseGetUser.Err(); errGetUser != nil {
 		return v0GetUser, fmt.Errorf("error returned from 'GetUser' response: %w", errGetUser)
@@ -154,9 +171,10 @@ func (imp implUserService) GetUsers(ids ...int64) ([]User, error) {
 loop:
 	for {
 		var (
-			v0GetUsers       []User
-			errGetUsers      error
-			responseGetUsers interface {
+			v0GetUsers           []User
+			errGetUsers          error
+			httpResponseGetUsers *http.Response
+			responseGetUsers     interface {
 				Err() error
 				ScanValues(...any) error
 				FromBytes(string, []byte) error
@@ -164,7 +182,7 @@ loop:
 			} = imp.Response()
 		)
 
-		if errGetUsers = template.Must(addrTmplGetUsers.Parse("{{ $.UserService.Host }}/users?{{ range $index, $id := $.ids }}{{ if gt $index 0 }}&{{ end }}$id{{ end }}")).
+		if errGetUsers = template.Must(addrTmplGetUsers.Parse("{{ $.UserService.Host }}/users?{{ range $index, $id := $.ids }}{{ if gt $index 0 }}&{{ end }}{{ $id }}{{ end }}")).
 			Execute(addrGetUsers, map[string]any{
 				"UserService": imp.inner,
 				"ids":         ids,
@@ -178,9 +196,22 @@ loop:
 			return v0GetUsers, fmt.Errorf("error building 'GetUsers' request: %w", errGetUsers)
 		}
 
-		httpResponseGetUsers, errGetUsers := http.DefaultClient.Do(requestGetUsers)
+		startGetUsers := time.Now()
+
+		if httpClientGetUsers, okGetUsers := innerGetUsers.(interface{ Client() *http.Client }); okGetUsers {
+			httpResponseGetUsers, errGetUsers = httpClientGetUsers.Client().Do(requestGetUsers)
+		} else {
+			httpResponseGetUsers, errGetUsers = http.DefaultClient.Do(requestGetUsers)
+		}
+
 		if errGetUsers != nil {
 			return v0GetUsers, fmt.Errorf("error sending 'GetUsers' request: %w", errGetUsers)
+		}
+
+		if logGetUsers, okGetUsers := innerGetUsers.(interface {
+			Log(ctx context.Context, caller string, method string, url string, elapse time.Duration)
+		}); okGetUsers {
+			logGetUsers.Log(context.Background(), "GetUsers", "GET", urlGetUsers, time.Since(startGetUsers))
 		}
 
 		if _, errGetUsers = io.Copy(responseBodyGetUsers, httpResponseGetUsers.Body); errGetUsers != nil {
@@ -197,6 +228,8 @@ loop:
 		if errGetUsers = responseGetUsers.FromBytes("GetUsers", responseBodyGetUsers.Bytes()); errGetUsers != nil {
 			return v0GetUsers, fmt.Errorf("error converting 'GetUsers' response: %w", errGetUsers)
 		}
+
+		responseBodyGetUsers.Reset()
 
 		if errGetUsers = responseGetUsers.Err(); errGetUsers != nil {
 			return v0GetUsers, fmt.Errorf("error returned from 'GetUsers' response: %w", errGetUsers)
@@ -253,8 +286,9 @@ func (imp implUserService) UpdateUser(user *User) error {
 	defer responseBodyUpdateUser.Reset()
 
 	var (
-		errUpdateUser      error
-		responseUpdateUser interface {
+		errUpdateUser          error
+		httpResponseUpdateUser *http.Response
+		responseUpdateUser     interface {
 			Err() error
 			ScanValues(...any) error
 			FromBytes(string, []byte) error
@@ -295,9 +329,22 @@ func (imp implUserService) UpdateUser(user *User) error {
 		}
 	}
 
-	httpResponseUpdateUser, errUpdateUser := http.DefaultClient.Do(requestUpdateUser)
+	startUpdateUser := time.Now()
+
+	if httpClientUpdateUser, okUpdateUser := innerUpdateUser.(interface{ Client() *http.Client }); okUpdateUser {
+		httpResponseUpdateUser, errUpdateUser = httpClientUpdateUser.Client().Do(requestUpdateUser)
+	} else {
+		httpResponseUpdateUser, errUpdateUser = http.DefaultClient.Do(requestUpdateUser)
+	}
+
 	if errUpdateUser != nil {
 		return fmt.Errorf("error sending 'UpdateUser' request: %w", errUpdateUser)
+	}
+
+	if logUpdateUser, okUpdateUser := innerUpdateUser.(interface {
+		Log(ctx context.Context, caller string, method string, url string, elapse time.Duration)
+	}); okUpdateUser {
+		logUpdateUser.Log(context.Background(), "UpdateUser", "PUT", urlUpdateUser, time.Since(startUpdateUser))
 	}
 
 	if _, errUpdateUser = io.Copy(responseBodyUpdateUser, httpResponseUpdateUser.Body); errUpdateUser != nil {
@@ -314,6 +361,8 @@ func (imp implUserService) UpdateUser(user *User) error {
 	if errUpdateUser = responseUpdateUser.FromBytes("UpdateUser", responseBodyUpdateUser.Bytes()); errUpdateUser != nil {
 		return fmt.Errorf("error converting 'UpdateUser' response: %w", errUpdateUser)
 	}
+
+	responseBodyUpdateUser.Reset()
 
 	if errUpdateUser = responseUpdateUser.Err(); errUpdateUser != nil {
 		return fmt.Errorf("error returned from 'UpdateUser' response: %w", errUpdateUser)

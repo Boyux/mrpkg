@@ -5,6 +5,9 @@ package {{ .Package }}
 
 import (
 "bytes"
+{{ if $.HasFeature "api/log" -}}
+    "time"
+{{ end -}}
 "fmt"
 "io"
 "net/http"
@@ -60,28 +63,32 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{ $inner := printf "inner%s" $method.Ident }}
         {{- $cache := printf "cache%s" $method.Ident -}}
         {{- $ok := printf "ok%s" $method.Ident -}}
+
         {{- if $context.HasInner -}}
-            {{- if $context.HasFeature "api/cache" -}}
+            {{- if or ($context.HasFeature "api/cache") ($context.HasFeature "api/log") ($context.HasFeature "api/client") -}}
                 var {{ $inner }} any = imp.inner
+            {{- end -}}
+        {{ end }}
 
-                if {{ $cache }}, {{ $ok }} := {{ $inner }}.(interface{
-                GetCache(string, ...any) []any
-                }); {{ $ok }} {
-                {{- $cacheValues := printf "cacheValues%s" $method.Ident -}}
-                if {{ $cacheValues }} := {{ $cache }}.GetCache({{ quote $method.Ident }}, {{- range $index, $ident := $sortIn -}}
-                    {{- $ident }},
-                {{- end -}});
-                {{ $cacheValues }} != nil {
-                return {{ range $index, $type := $method.Out -}}
-                    {{- if lt $index (sub (len $method.Out) 1) -}}
-                        {{- $cacheValues -}}[{{ $index }}].({{ getRepr $type }}),
-                    {{- end -}}
+        {{ if $context.HasFeature "api/cache" -}}
+
+            if {{ $cache }}, {{ $ok }} := {{ $inner }}.(interface{
+            GetCache(string, ...any) []any
+            }); {{ $ok }} {
+            {{- $cacheValues := printf "cacheValues%s" $method.Ident -}}
+            if {{ $cacheValues }} := {{ $cache }}.GetCache({{ quote $method.Ident }}, {{- range $index, $ident := $sortIn -}}
+                {{- $ident }},
+            {{- end -}});
+            {{ $cacheValues }} != nil {
+            return {{ range $index, $type := $method.Out -}}
+                {{- if lt $index (sub (len $method.Out) 1) -}}
+                    {{- $cacheValues -}}[{{ $index }}].({{ getRepr $type }}),
                 {{- end -}}
-                nil
-                }
-                }
+            {{- end -}}
+            nil
+            }
+            }
 
-            {{ end -}}
         {{ end -}}
         {{- $values := printf "values%s" $method.Ident -}}
         {{- $n := printf "n%s" $method.Ident -}}
@@ -142,6 +149,8 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{- end -}}
         {{- $err := printf "err%s" $method.Ident }}
         {{- $err }} error
+        {{ $httpResponse := printf "httpResponse%s" $method.Ident -}}
+        {{ $httpResponse }} *http.Response
         {{ $response := printf "response%s" $method.Ident -}}
         {{ $response }} interface {
         Err() error
@@ -236,8 +245,22 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
             }
         {{- end }}
 
-        {{ $httpResponse := printf "httpResponse%s" $method.Ident -}}
-        {{ $httpResponse }}, {{ $err }} := http.DefaultClient.Do({{ $request }})
+        {{- $log := printf "log%s" $method.Ident }}
+        {{ $start := printf "start%s" $method.Ident }}
+        {{ if $context.HasFeature "api/log" }}
+            {{ $start }} := time.Now()
+        {{ end }}
+
+        {{ $httpClient := printf "httpClient%s" $method.Ident -}}
+        {{ if $context.HasFeature "api/client" }}
+            if {{ $httpClient }}, {{ $ok }} := {{ $inner }}.(interface{ Client() *http.Client }); {{ $ok }} {
+            {{ $httpResponse }}, {{ $err }} = {{ $httpClient }}.Client().Do({{ $request }})
+            } else {
+            {{ $httpResponse }}, {{ $err }} = http.DefaultClient.Do({{ $request }})
+            }
+        {{ else }}
+            {{ $httpResponse }}, {{ $err }} = http.DefaultClient.Do({{ $request }})
+        {{ end }}
         if {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -246,6 +269,12 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{- end -}}
         fmt.Errorf("error sending '{{ $method.Ident }}' request: %w", {{ $err }})
         }
+
+        {{ if $context.HasFeature "api/log" }}
+            if {{ $log }}, {{ $ok }} := {{ $inner }}.(interface{ Log(ctx context.Context, caller string, method string, url string, elapse time.Duration) }); {{ $ok }} {
+            {{ $log }}.Log({{ if $method.HasContext }}ctx{{ else }}context.Background(){{ end }}, {{ quote $method.Ident }}, {{ quote $httpMethod }}, {{ $url }}, time.Since({{ $start }}))
+            }
+        {{ end }}
 
         if _, {{ $err }} = io.Copy({{ $responseBody }}, {{ $httpResponse }}.Body); {{ $err }} != nil {
         {{ $httpResponse }}.Body.Close()
@@ -265,7 +294,7 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
                 v{{- $index -}}{{- $method.Ident }},
             {{- end -}}
         {{- end -}}
-        fmt.Errorf("response status code %d for '{{ $method.Ident }}' with body: \n\n%s\n\n", {{ $httpResponse}}.StatusCode, {{ $responseBody }}.String())
+        fmt.Errorf("response status code %d for '{{ $method.Ident }}' with body: \n\n%s\n\n", {{ $httpResponse }}.StatusCode, {{ $responseBody }}.String())
         }
 
         if {{ $err }} = {{ $response }}.FromBytes({{ quote $method.Ident }}, {{ $responseBody }}.Bytes()); {{ $err }} != nil {
@@ -276,6 +305,8 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{- end -}}
         fmt.Errorf("error converting '{{ $method.Ident }}' response: %w", {{ $err }})
         }
+
+        {{ $responseBody }}.Reset()
 
         if {{ $err }} = {{ $response }}.Err(); {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}

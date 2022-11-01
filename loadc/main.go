@@ -38,7 +38,7 @@ var (
 
 var loadc = &cobra.Command{
 	Use:     "loadc",
-	Version: "v0.3.2",
+	Version: "v0.4.1",
 	Args: func(cmd *cobra.Command, args []string) error {
 		switch mode {
 		case ModeSql:
@@ -71,6 +71,8 @@ var loadc = &cobra.Command{
 
 var validFeatures = []string{
 	FeatureApiCache,
+	FeatureApiLog,
+	FeatureApiClient,
 	FeatureSqlxLog,
 }
 
@@ -97,7 +99,7 @@ Check:
 
 func init() {
 	loadc.Flags().StringVarP(&mode, "mode", "m", "", "mode=[sql, api, sqlx, ...]")
-	loadc.Flags().StringArrayVarP(&features, "features", "f", nil, "features")
+	loadc.Flags().StringSliceVarP(&features, "features", "f", nil, "features")
 	loadc.Flags().StringVarP(&output, "output", "o", "", "output file name")
 	loadc.Flags().BoolVar(&pointer, "pointer", false, "mode=sql: make 'SqlLoader' pointer type (*ident)")
 }

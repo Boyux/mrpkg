@@ -20,7 +20,9 @@ const (
 	ApiMethodInner    = "Inner"
 	ApiMethodResponse = "Response"
 
-	FeatureApiCache = "api/cache"
+	FeatureApiCache  = "api/cache"
+	FeatureApiLog    = "api/log"
+	FeatureApiClient = "api/client"
 )
 
 func genApi(_ *cobra.Command, _ []string) error {
