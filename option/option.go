@@ -48,8 +48,22 @@ func New[T any](value T) Value[T] {
 	}
 }
 
+func NewRef[T any](value T) *Value[T] {
+	return &Value[T]{
+		valid: true,
+		value: value,
+	}
+}
+
 func NewNone[T any]() Value[T] {
 	return Value[T]{
+		valid: false,
+		value: nil,
+	}
+}
+
+func NewNoneRef[T any]() *Value[T] {
+	return &Value[T]{
 		valid: false,
 		value: nil,
 	}
@@ -90,6 +104,7 @@ func (option *Value[T]) UnmarshalJSON(bytes []byte) error {
 	if bytesPkg.Equal(bytesPkg.TrimSpace(bytes), []byte("null")) {
 		option.valid = false
 		option.value = nil
+		return nil
 	}
 	var x T
 	option.valid = true
