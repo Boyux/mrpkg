@@ -93,14 +93,16 @@ func (imp *implUserHandler) Get(ctx context.Context, id int64) (User, error) {
 
 	startGet := time.Now()
 
-	if errGet = imp.Core.GetContext(ctx, &v0Get, sqlQueryGet, argsGet...); errGet != nil {
-		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlQueryGet, errGet)
-	}
+	errGet = imp.Core.GetContext(ctx, &v0Get, sqlQueryGet, argsGet...)
 
 	if logGet, okGet := imp.Core.(interface {
 		Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
 	}); okGet {
 		logGet.Log(ctx, "Get", sqlQueryGet, argsGet, time.Since(startGet))
+	}
+
+	if errGet != nil {
+		return v0Get, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Get"), sqlQueryGet, errGet)
 	}
 
 	return v0Get, nil
@@ -142,14 +144,16 @@ func (imp *implUserHandler) QueryByName(name string) ([]User, error) {
 	if errQueryByName != nil {
 		return v0QueryByName, fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote("QueryByName"), errQueryByName)
 	}
-	if errQueryByName = stmtQueryByName.Select(&v0QueryByName, argsQueryByName); errQueryByName != nil {
-		return v0QueryByName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("QueryByName"), sqlQueryQueryByName, errQueryByName)
-	}
+	errQueryByName = stmtQueryByName.Select(&v0QueryByName, argsQueryByName)
 
 	if logQueryByName, okQueryByName := imp.Core.(interface {
 		Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
 	}); okQueryByName {
 		logQueryByName.Log(context.Background(), "QueryByName", sqlQueryQueryByName, argsQueryByName, time.Since(startQueryByName))
+	}
+
+	if errQueryByName != nil {
+		return v0QueryByName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("QueryByName"), sqlQueryQueryByName, errQueryByName)
 	}
 
 	return v0QueryByName, nil
@@ -203,14 +207,16 @@ func (imp *implUserHandler) Update(ctx context.Context, user *UserUpdate) error 
 
 		startUpdate := time.Now()
 
-		if _, errUpdate = txUpdate.ExecContext(ctx, splitSqlUpdate, argsUpdate[offsetUpdate:offsetUpdate+countUpdate]...); errUpdate != nil {
-			return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), splitSqlUpdate, errUpdate)
-		}
+		_, errUpdate = txUpdate.ExecContext(ctx, splitSqlUpdate, argsUpdate[offsetUpdate:offsetUpdate+countUpdate]...)
 
 		if logUpdate, okUpdate := imp.Core.(interface {
 			Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
 		}); okUpdate {
 			logUpdate.Log(ctx, "Update", splitSqlUpdate, argsUpdate, time.Since(startUpdate))
+		}
+
+		if errUpdate != nil {
+			return fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("Update"), splitSqlUpdate, errUpdate)
 		}
 
 		offsetUpdate += countUpdate
@@ -278,14 +284,16 @@ func (imp *implUserHandler) UpdateName(ctx context.Context, id int64, name strin
 			return v0UpdateName, fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote("UpdateName"), errUpdateName)
 		}
 
-		if v0UpdateName, errUpdateName = stmtUpdateName.ExecContext(ctx, argsUpdateName); errUpdateName != nil {
-			return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), splitSqlUpdateName, errUpdateName)
-		}
+		v0UpdateName, errUpdateName = stmtUpdateName.ExecContext(ctx, argsUpdateName)
 
 		if logUpdateName, okUpdateName := imp.Core.(interface {
 			Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
 		}); okUpdateName {
 			logUpdateName.Log(ctx, "UpdateName", splitSqlUpdateName, argsUpdateName, time.Since(startUpdateName))
+		}
+
+		if errUpdateName != nil {
+			return v0UpdateName, fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote("UpdateName"), splitSqlUpdateName, errUpdateName)
 		}
 
 	}

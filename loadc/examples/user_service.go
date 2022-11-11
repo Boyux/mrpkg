@@ -89,14 +89,14 @@ func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) 
 		httpResponseGetUser, errGetUser = http.DefaultClient.Do(requestGetUser)
 	}
 
-	if errGetUser != nil {
-		return v0GetUser, fmt.Errorf("error sending 'GetUser' request: %w", errGetUser)
-	}
-
 	if logGetUser, okGetUser := innerGetUser.(interface {
 		Log(ctx context.Context, caller string, method string, url string, elapse time.Duration)
 	}); okGetUser {
 		logGetUser.Log(ctx, "GetUser", "GET", urlGetUser, time.Since(startGetUser))
+	}
+
+	if errGetUser != nil {
+		return v0GetUser, fmt.Errorf("error sending 'GetUser' request: %w", errGetUser)
 	}
 
 	if _, errGetUser = io.Copy(responseBodyGetUser, httpResponseGetUser.Body); errGetUser != nil {
@@ -204,14 +204,14 @@ loop:
 			httpResponseGetUsers, errGetUsers = http.DefaultClient.Do(requestGetUsers)
 		}
 
-		if errGetUsers != nil {
-			return v0GetUsers, fmt.Errorf("error sending 'GetUsers' request: %w", errGetUsers)
-		}
-
 		if logGetUsers, okGetUsers := innerGetUsers.(interface {
 			Log(ctx context.Context, caller string, method string, url string, elapse time.Duration)
 		}); okGetUsers {
 			logGetUsers.Log(context.Background(), "GetUsers", "GET", urlGetUsers, time.Since(startGetUsers))
+		}
+
+		if errGetUsers != nil {
+			return v0GetUsers, fmt.Errorf("error sending 'GetUsers' request: %w", errGetUsers)
 		}
 
 		if _, errGetUsers = io.Copy(responseBodyGetUsers, httpResponseGetUsers.Body); errGetUsers != nil {
@@ -337,14 +337,14 @@ func (imp implUserService) UpdateUser(user *User) error {
 		httpResponseUpdateUser, errUpdateUser = http.DefaultClient.Do(requestUpdateUser)
 	}
 
-	if errUpdateUser != nil {
-		return fmt.Errorf("error sending 'UpdateUser' request: %w", errUpdateUser)
-	}
-
 	if logUpdateUser, okUpdateUser := innerUpdateUser.(interface {
 		Log(ctx context.Context, caller string, method string, url string, elapse time.Duration)
 	}); okUpdateUser {
 		logUpdateUser.Log(context.Background(), "UpdateUser", "PUT", urlUpdateUser, time.Since(startUpdateUser))
+	}
+
+	if errUpdateUser != nil {
+		return fmt.Errorf("error sending 'UpdateUser' request: %w", errUpdateUser)
 	}
 
 	if _, errUpdateUser = io.Copy(responseBodyUpdateUser, httpResponseUpdateUser.Body); errUpdateUser != nil {

@@ -187,22 +187,24 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
             {{- end -}} fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
             }
 
-            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $stmt }}.Exec{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $args }}); {{ $err }} != nil {
+            {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $stmt }}.Exec{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $args }})
         {{ else }}
-            if {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $tx }}.Exec{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $splitSql }}, {{ $args }}[{{ $offset }}:{{ $offset }}+{{ $count }}]...); {{ $err }} != nil {
-        {{ end -}}
-        return {{ range $index, $type := $method.Out -}}
-            {{- if lt $index (sub (len $method.Out) 1) -}}
-                v{{- $index -}}{{- $method.Ident }},
-            {{- end -}}
-        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $splitSql }}, {{ $err }})
-        }
+            {{ if gt (len $method.Out) 1 }}{{ $execResult }}{{ else }}_{{ end }}, {{ $err }} = {{ $tx }}.Exec{{ if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ $splitSql }}, {{ $args }}[{{ $offset }}:{{ $offset }}+{{ $count }}]...)
+        {{ end }}
 
         {{ if $.HasFeature "sqlx/log" -}}
             if {{ $log }}, {{ $ok }} := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); {{ $ok }} {
             {{ $log }}.Log({{ if $method.HasContext }}ctx{{ else }}context.Background(){{ end }}, {{ quote $method.Ident }}, {{ $splitSql }}, {{ $args }}, time.Since({{ $start }}))
             }
         {{- end }}
+
+        if {{ $err }} != nil {
+        return {{ range $index, $type := $method.Out -}}
+            {{- if lt $index (sub (len $method.Out) 1) -}}
+                v{{- $index -}}{{- $method.Ident }},
+            {{- end -}}
+        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $splitSql }}, {{ $err }})
+        }
 
         {{ if not (hasFeature ($method.SqlFeatures) "NAMED") }}
             {{ $offset }} += {{ $count }}
@@ -256,22 +258,24 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
                 {{- end -}}
             {{- end -}} fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
             }
-            if {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $args }}); {{ $err }} != nil {
+            {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $args }})
         {{ else }}
-            if {{ $err }} = imp.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...); {{ $err }} != nil {
-        {{ end -}}
-        return {{ range $index, $type := $method.Out -}}
-            {{- if lt $index (sub (len $method.Out) 1) -}}
-                v{{- $index -}}{{- $method.Ident }},
-            {{- end -}}
-        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $sqlQuery }}, {{ $err }})
-        }
+            {{ $err }} = imp.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...)
+        {{ end }}
 
         {{ if $.HasFeature "sqlx/log" -}}
             if {{ $log }}, {{ $ok }} := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); {{ $ok }} {
             {{ $log }}.Log({{ if $method.HasContext }}ctx{{ else }}context.Background(){{ end }}, {{ quote $method.Ident }}, {{ $sqlQuery }}, {{ $args }}, time.Since({{ $start }}))
             }
         {{- end }}
+
+        if  {{ $err }} != nil {
+        return {{ range $index, $type := $method.Out -}}
+            {{- if lt $index (sub (len $method.Out) 1) -}}
+                v{{- $index -}}{{- $method.Ident }},
+            {{- end -}}
+        {{- end -}} fmt.Errorf("error executing %s sql: \n\n%s\n\n%w", strconv.Quote({{ quote $method.Ident }}), {{ $sqlQuery }}, {{ $err }})
+        }
     {{ end }}
 
     return {{ range $index, $type := $method.Out -}}

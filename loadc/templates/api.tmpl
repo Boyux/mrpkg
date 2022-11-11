@@ -261,6 +261,13 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{ else }}
             {{ $httpResponse }}, {{ $err }} = http.DefaultClient.Do({{ $request }})
         {{ end }}
+
+        {{ if $context.HasFeature "api/log" }}
+            if {{ $log }}, {{ $ok }} := {{ $inner }}.(interface{ Log(ctx context.Context, caller string, method string, url string, elapse time.Duration) }); {{ $ok }} {
+            {{ $log }}.Log({{ if $method.HasContext }}ctx{{ else }}context.Background(){{ end }}, {{ quote $method.Ident }}, {{ quote $httpMethod }}, {{ $url }}, time.Since({{ $start }}))
+            }
+        {{ end }}
+
         if {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
@@ -269,12 +276,6 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         {{- end -}}
         fmt.Errorf("error sending '{{ $method.Ident }}' request: %w", {{ $err }})
         }
-
-        {{ if $context.HasFeature "api/log" }}
-            if {{ $log }}, {{ $ok }} := {{ $inner }}.(interface{ Log(ctx context.Context, caller string, method string, url string, elapse time.Duration) }); {{ $ok }} {
-            {{ $log }}.Log({{ if $method.HasContext }}ctx{{ else }}context.Background(){{ end }}, {{ quote $method.Ident }}, {{ quote $httpMethod }}, {{ $url }}, time.Since({{ $start }}))
-            }
-        {{ end }}
 
         if _, {{ $err }} = io.Copy({{ $responseBody }}, {{ $httpResponse }}.Body); {{ $err }} != nil {
         {{ $httpResponse }}.Body.Close()
