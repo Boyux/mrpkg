@@ -65,6 +65,10 @@ func (loader *SqlLoader) LoadTmplWithErr(id string, data any) (string, error) {
 
 var byteType = reflect.TypeOf([]byte{})
 
+type NotAnArg interface {
+	NotAnArg()
+}
+
 type ToArgs interface {
 	ToArgs() []any
 }
@@ -73,7 +77,9 @@ func MergeArgs(args ...any) []any {
 	dst := make([]any, 0, len(args))
 	for _, arg := range args {
 		rv := reflect.ValueOf(arg)
-		if toArgs, ok := arg.(ToArgs); ok {
+		if _, notAnArg := arg.(NotAnArg); notAnArg {
+			continue
+		} else if toArgs, ok := arg.(ToArgs); ok {
 			dst = append(dst, MergeArgs(toArgs.ToArgs()...)...)
 		} else if rv.Kind() == reflect.Slice && rv.Type() != byteType {
 			for i := 0; i < rv.Len(); i++ {
@@ -94,7 +100,9 @@ func MergeNamedArgs(argsMap map[string]any) map[string]any {
 	namedMap := make(map[string]any, len(argsMap))
 	for name, arg := range argsMap {
 		rv := reflect.ValueOf(arg)
-		if toNamedArgs, ok := arg.(ToNamedArgs); ok {
+		if _, notAnArg := arg.(NotAnArg); notAnArg {
+			continue
+		} else if toNamedArgs, ok := arg.(ToNamedArgs); ok {
 			for k, v := range toNamedArgs.ToNamedArgs() {
 				namedMap[k] = v
 			}
