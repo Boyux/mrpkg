@@ -1,3 +1,3 @@
 package mrpkg
 
-const Version = "0.9.1"
+const Version = "0.9.2"
