@@ -108,10 +108,9 @@ func (option *Value[T]) UnmarshalJSON(bytes []byte) error {
 	}
 	var x T
 	option.valid = true
-	option.value = x
 	if xt := reflect.TypeOf(x); xt.Kind() == reflect.Pointer {
-		x = reflect.New(xt.Elem()).Interface().(T)
-		return json.Unmarshal(bytes, x)
+		option.value = reflect.New(xt.Elem()).Interface().(T)
+		return json.Unmarshal(bytes, option.value)
 	} else {
 		if err := json.Unmarshal(bytes, &x); err != nil {
 			return err
@@ -129,11 +128,10 @@ func (option *Value[T]) Scan(src any) error {
 	}
 	var x T
 	option.valid = true
-	option.value = x
 	var maybeScanner any
 	if xt := reflect.TypeOf(x); xt.Kind() == reflect.Pointer {
-		x = reflect.New(xt.Elem()).Interface().(T)
-		maybeScanner = x
+		option.value = reflect.New(xt.Elem()).Interface().(T)
+		maybeScanner = option.value
 		if scanner, ok := maybeScanner.(sql.Scanner); ok {
 			return scanner.Scan(src)
 		}
