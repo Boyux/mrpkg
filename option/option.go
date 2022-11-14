@@ -145,6 +145,7 @@ func (option *Value[T]) Scan(src any) error {
 			return nil
 		}
 	}
+	option.value = x
 	switch v := src.(type) {
 	case int64:
 		switch option.value.(type) {
