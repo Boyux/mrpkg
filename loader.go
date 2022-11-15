@@ -141,6 +141,8 @@ func GenBindVars(data any) string {
 		} else {
 			n = rv.Len()
 		}
+	default:
+		n = 1
 	}
 
 	bindVars := make([]string, n)
