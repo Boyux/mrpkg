@@ -85,7 +85,6 @@ func (scheduler *Scheduler) init() {
 		for i := 0; i < Max(scheduler.N, 1); i++ {
 			go start(scheduler.ctx, scheduler.token, &scheduler.mu, scheduler.queue)
 		}
-		runtime.SetFinalizer(scheduler, (*Scheduler).Stop)
 	}
 }
 
@@ -159,6 +158,8 @@ func (scheduler *Scheduler) RunTaskWithPriority(task Task, lv Level) {
 }
 
 func (scheduler *Scheduler) Stop() {
+	scheduler.mu.Lock()
+	defer scheduler.mu.Unlock()
 	if scheduler.ctxCancel != nil {
 		scheduler.ctxCancel()
 		scheduler.ctx = nil
@@ -168,12 +169,10 @@ func (scheduler *Scheduler) Stop() {
 			scheduler.token = nil
 		}
 		if scheduler.queue != nil {
-			scheduler.mu.Lock()
 			for scheduler.queue.Len() > 0 {
 				scheduler.queue.Pop()
 			}
 			scheduler.queue = nil
-			scheduler.mu.Unlock()
 		}
 	}
 }
