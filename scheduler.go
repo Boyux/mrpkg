@@ -72,6 +72,8 @@ type Scheduler struct {
 }
 
 func (scheduler *Scheduler) init() {
+	scheduler.mu.Lock()
+	defer scheduler.mu.Unlock()
 	if scheduler.token == nil {
 		scheduler.token = make(Token)
 		if scheduler.queue == nil {
