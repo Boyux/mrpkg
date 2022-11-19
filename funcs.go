@@ -178,6 +178,17 @@ func Map[T, U any](src []T, f func(T) U) []U {
 	return dst
 }
 
+func Mapx[T, U any](src []T, f func(T) (U, error)) (dst []U, err error) {
+	dst = make([]U, len(src))
+	for i := 0; i < len(src); i++ {
+		dst[i], err = f(src[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return dst, nil
+}
+
 func Filter[T any](src []T, f func(T) bool) []T {
 	dst := make([]T, 0, len(src))
 	for i := 0; i < len(src); i++ {
