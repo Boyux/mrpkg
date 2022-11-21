@@ -192,15 +192,6 @@ func readHeader(header string) (string, error) {
 	return buf.String(), nil
 }
 
-func importStrings(methods []*Method) bool {
-	for _, method := range methods {
-		if method.SqlOperation() == SqlxOpExec {
-			return true
-		}
-	}
-	return false
-}
-
 func hasFeature(feats []string, feat string) bool {
 	for _, f := range feats {
 		if f == toUpper(feat) {
@@ -219,7 +210,6 @@ func genSqlxCode(ctx *SqlxContext) ([]byte, error) {
 		Funcs(template.FuncMap{
 			"quote":         quote,
 			"readHeader":    readHeader,
-			"importStrings": importStrings,
 			"hasFeature":    hasFeature,
 			"isSlice":       isSlice,
 			"isPointer":     isPointer,
