@@ -144,7 +144,7 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
         var (
         {{ range $index, $type := $method.Out -}}
             {{ if lt $index (sub (len $method.Out) 1) -}}
-                v{{- $index -}}{{- $method.Ident }} {{ getRepr $type }}
+                v{{- $index -}}{{- $method.Ident }} {{ if isPointer $type }}=new({{ getRepr (indirect $type) }}){{ else }}{{ getRepr $type }}{{ end }}
             {{ end -}}
         {{- end -}}
         {{- $err := printf "err%s" $method.Ident }}
@@ -320,7 +320,7 @@ type {{ $impName }}{{ $.GenericsRepr true }} struct{
 
         if {{ $err }} = {{ $response }}.ScanValues({{ range $index, $type := $method.Out -}}
             {{- if lt $index (sub (len $method.Out) 1) -}}
-                &v{{- $index -}}{{- $method.Ident }},
+                {{ if not (isPointer $type) }}&{{ end }}v{{- $index -}}{{- $method.Ident }},
             {{- end -}}
         {{- end -}}); {{ $err }} != nil {
         return {{ range $index, $type := $method.Out -}}

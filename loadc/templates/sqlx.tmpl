@@ -87,7 +87,7 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
     var (
     {{ range $index, $type := $method.Out -}}
         {{ if lt $index (sub (len $method.Out) 1) -}}
-            v{{- $index -}}{{- $method.Ident }} {{ getRepr $type }}
+            v{{- $index -}}{{- $method.Ident }} {{ if isPointer $type }}=new({{ getRepr (indirect $type) }}){{ else }}{{ getRepr $type }}{{ end }}
         {{ end -}}
     {{ end -}}
     {{- $err := printf "err%s" $method.Ident }}
@@ -258,9 +258,9 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
                 {{- end -}}
             {{- end -}} fmt.Errorf("error creating %s prepare statement: %w", strconv.Quote({{ quote $method.Ident }}), {{ $err }})
             }
-            {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $args }})
+            {{ $err }} = {{ $stmt }}.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ if not (isPointer (index $method.Out 0)) }}&{{ end }}v0{{ $method.Ident }}, {{ $args }})
         {{ else }}
-            {{ $err }} = imp.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}&v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...)
+            {{ $err }} = imp.Core.{{ if isSlice (index $method.Out 0) }}Select{{ else }}Get{{ end }}{{if $method.HasContext }}Context{{ end }}({{ if $method.HasContext }}ctx, {{ end }}{{ if not (isPointer (index $method.Out 0)) }}&{{ end }}v0{{ $method.Ident }}, {{ $sqlQuery }}, {{ $args }}...)
         {{ end }}
 
         {{ if $.HasFeature "sqlx/log" -}}

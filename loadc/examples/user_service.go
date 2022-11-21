@@ -31,14 +31,14 @@ func (implUserService) Response() *UserResponse {
 	return new(UserResponse)
 }
 
-func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) {
+func (imp implUserService) GetUser(ctx context.Context, id int64) (*User, error) {
 	var innerGetUser any = imp.inner
 
 	if cacheGetUser, okGetUser := innerGetUser.(interface {
 		GetCache(string, ...any) []any
 	}); okGetUser {
 		if cacheValuesGetUser := cacheGetUser.GetCache("GetUser", ctx, id); cacheValuesGetUser != nil {
-			return cacheValuesGetUser[0].(User), nil
+			return cacheValuesGetUser[0].(*User), nil
 		}
 	}
 
@@ -55,7 +55,7 @@ func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) 
 	defer responseBodyGetUser.Reset()
 
 	var (
-		v0GetUser           User
+		v0GetUser           = new(User)
 		errGetUser          error
 		httpResponseGetUser *http.Response
 		responseGetUser     interface {
@@ -120,7 +120,7 @@ func (imp implUserService) GetUser(ctx context.Context, id int64) (User, error) 
 		return v0GetUser, fmt.Errorf("error returned from 'GetUser' response: %w", errGetUser)
 	}
 
-	if errGetUser = responseGetUser.ScanValues(&v0GetUser); errGetUser != nil {
+	if errGetUser = responseGetUser.ScanValues(v0GetUser); errGetUser != nil {
 		return v0GetUser, fmt.Errorf("error scanning value from 'GetUser' response: %w", errGetUser)
 	}
 

@@ -60,9 +60,9 @@ type implUserHandler struct {
 	}
 }
 
-func (imp *implUserHandler) Get(ctx context.Context, id int64) (User, error) {
+func (imp *implUserHandler) Get(ctx context.Context, id int64) (*User, error) {
 	var (
-		v0Get  User
+		v0Get  = new(User)
 		errGet error
 	)
 
@@ -93,7 +93,7 @@ func (imp *implUserHandler) Get(ctx context.Context, id int64) (User, error) {
 
 	startGet := time.Now()
 
-	errGet = imp.Core.GetContext(ctx, &v0Get, sqlQueryGet, argsGet...)
+	errGet = imp.Core.GetContext(ctx, v0Get, sqlQueryGet, argsGet...)
 
 	if logGet, okGet := imp.Core.(interface {
 		Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)

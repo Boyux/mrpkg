@@ -222,6 +222,8 @@ func genSqlxCode(ctx *SqlxContext) ([]byte, error) {
 			"importStrings": importStrings,
 			"hasFeature":    hasFeature,
 			"isSlice":       isSlice,
+			"isPointer":     isPointer,
+			"indirect":      indirect,
 			"isContextType": func(ident string, expr ast.Expr) bool { return isContextType(ident, expr, FileContent) },
 			"sub":           func(x, y int) int { return x - y },
 			"getRepr":       func(node ast.Node) string { return getRepr(node, FileContent) },

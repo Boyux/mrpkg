@@ -35,7 +35,7 @@ type UserHandler interface {
 
 	// Get QUERY
 	// include sql/get_user.sql
-	Get(ctx context.Context, id int64) (User, error)
+	Get(ctx context.Context, id int64) (*User, error)
 
 	// QueryByName QUERY NAMED
 	// SELECT
@@ -72,7 +72,7 @@ type UserService interface {
 	Response() *UserResponse
 
 	// GetUser GET {{ $.UserService.Host }}/user/{{ $.id }}
-	GetUser(ctx context.Context, id int64) (User, error)
+	GetUser(ctx context.Context, id int64) (*User, error)
 
 	// GetUsers GET {{ $.UserService.Host }}/users?{{ range $index, $id := $.ids }}{{ if gt $index 0 }}&{{ end }}{{ $id }}{{ end }}
 	GetUsers(ids ...int64) ([]User, error)
@@ -88,7 +88,7 @@ type UserService interface {
 }
 
 func main() {
-	var user User
+	var user *User
 
 	userHandler := NewUserHandler("driver", "source")
 	user, _ = userHandler.Get(context.Background(), 1)
@@ -97,5 +97,5 @@ func main() {
 
 	userService := NewUserService(&Inner{Host: "host"})
 	user, _ = userService.GetUser(context.Background(), 1)
-	userService.UpdateUser(&user)
+	userService.UpdateUser(user)
 }

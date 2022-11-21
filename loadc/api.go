@@ -290,6 +290,8 @@ func genApiCode(ctx *ApiContext) ([]byte, error) {
 		New("loadc(api)").
 		Funcs(template.FuncMap{
 			"quote":         quote,
+			"isPointer":     isPointer,
+			"indirect":      indirect,
 			"importContext": importContext,
 			"sub": func(x, y int) int {
 				return x - y

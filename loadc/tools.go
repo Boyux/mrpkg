@@ -60,6 +60,18 @@ func hit(fset *token.FileSet, node ast.Node, line int) bool {
 	return pos.Line <= line && end.Line >= line
 }
 
+func indirect(node ast.Node) ast.Node {
+	if ptr, ok := node.(*ast.StarExpr); ok {
+		return ptr.X
+	}
+	return node
+}
+
+func isPointer(node ast.Node) bool {
+	_, ok := node.(*ast.StarExpr)
+	return ok
+}
+
 func isSlice(node ast.Node) bool {
 	typ, ok := node.(*ast.ArrayType)
 	return ok && typ.Len == nil
