@@ -5,10 +5,8 @@ package {{ $.Package }}
 
 import (
 "fmt"
-"bytes"
-{{ if $.HasFeature "sqlx/log" -}}
-    "time"
-{{- end -}}
+"bytes" {{ if $.HasFeature "sqlx/log" }}
+    "time" {{- end }}
 "strconv"
 "database/sql"
 "strings"
