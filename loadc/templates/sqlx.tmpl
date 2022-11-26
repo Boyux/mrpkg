@@ -301,9 +301,11 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 
     type {{ $tx }} struct {
     *sqlx.Tx
-    log interface {
-    Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
-    }
+    {{ if $.HasFeature "sqlx/log" -}}
+        log interface {
+        Log(ctx context.Context, caller string, query string, args any, elapse time.Duration)
+        }
+    {{ end }}
     }
 
     func (tx {{ $tx }}) Beginx() (*sqlx.Tx, error) {
@@ -335,9 +337,11 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
         Tx: inner,
         }
 
-        if log, ok := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); ok {
-        core.log = log
-        }
+        {{ if $.HasFeature "sqlx/log" -}}
+            if log, ok := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); ok {
+            core.log = log
+            }
+        {{ end }}
 
         tx := &{{ $impName }}{
         withTx: true,
@@ -367,9 +371,11 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
         Tx: inner,
         }
 
-        if log, ok := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); ok {
-        core.log = log
-        }
+        {{ if $.HasFeature "sqlx/log" -}}
+            if log, ok := imp.Core.(interface{ Log(ctx context.Context, caller string, query string, args any, elapse time.Duration) }); ok {
+            core.log = log
+            }
+        {{ end }}
 
         tx := &{{ $impName }}{
         withTx: true,
