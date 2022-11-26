@@ -93,6 +93,10 @@ func (option *Value[T]) Set(value T) {
 	option.value = value
 }
 
+func (option *Value[T]) ResetUnsafe() {
+	option.valid = false
+}
+
 func (option *Value[T]) MarshalJSON() ([]byte, error) {
 	if !option.valid {
 		return json.Marshal(nil)
