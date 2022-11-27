@@ -98,7 +98,7 @@ func (option *Value[T]) ResetUnsafe() {
 }
 
 func (option *Value[T]) GetUnchecked() T {
-	return option.value
+	return option.value.(T)
 }
 
 func (option *Value[T]) MarshalJSON() ([]byte, error) {
