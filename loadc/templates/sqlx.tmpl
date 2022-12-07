@@ -160,13 +160,18 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 
         {{ $splitSql := printf "splitSql%s" $method.Ident }}
         for _, {{ $splitSql }} := range strings.Split({{ $sql }}.String(), ";") {
-        {{ $splitSql }} = strings.TrimSpace(imp.Core.Rebind({{ $splitSql }}))
+        {{ $splitSql }} = strings.TrimSpace({{ $splitSql }})
         if {{ $splitSql }} == "" {
         continue
         }
         {{ $count := printf "count%s" $method.Ident -}}
         {{ if not (hasFeature ($method.SqlFeatures) "NAMED") }}
             {{ $count }} := strings.Count({{ $splitSql }}, "?")
+        {{ end }}
+
+        {{- if $.HasFeature "sqlx/rebind" }}
+            {{- /* Rebind must be executed after Count */ -}}
+            {{- $splitSql }} = imp.Core.Rebind({{ $splitSql }})
         {{ end }}
 
         {{ if $.HasFeature "sqlx/log" -}}
@@ -222,7 +227,10 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 
     {{ if isQuery $method.SqlOperation }}
         {{ $sqlQuery := printf "sqlQuery%s" $method.Ident -}}
-        {{ $sqlQuery }} := strings.TrimSpace(imp.Core.Rebind({{ $sql }}.String()))
+        {{ $sqlQuery }} := strings.TrimSpace({{ $sql }}.String())
+        {{- if $.HasFeature "sqlx/rebind" }}
+            {{ $sqlQuery }} = imp.Core.Rebind({{ $sqlQuery }})
+        {{ end -}}
         {{- $args := printf "args%s" $method.Ident -}}
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $args }} := mrpkg.MergeNamedArgs(map[string]any{

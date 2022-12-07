@@ -88,7 +88,9 @@ func (imp *implUserHandler) Get(ctx context.Context, id int64) (*User, error) {
 		return v0Get, fmt.Errorf("error executing %s template: %w", strconv.Quote("Get"), errGet)
 	}
 
-	sqlQueryGet := strings.TrimSpace(imp.Core.Rebind(sqlGet.String()))
+	sqlQueryGet := strings.TrimSpace(sqlGet.String())
+	sqlQueryGet = imp.Core.Rebind(sqlQueryGet)
+
 	argsGet := mrpkg.MergeArgs(
 		id,
 	)
@@ -135,7 +137,9 @@ func (imp *implUserHandler) QueryByName(name string) ([]User, error) {
 		return v0QueryByName, fmt.Errorf("error executing %s template: %w", strconv.Quote("QueryByName"), errQueryByName)
 	}
 
-	sqlQueryQueryByName := strings.TrimSpace(imp.Core.Rebind(sqlQueryByName.String()))
+	sqlQueryQueryByName := strings.TrimSpace(sqlQueryByName.String())
+	sqlQueryQueryByName = imp.Core.Rebind(sqlQueryQueryByName)
+
 	argsQueryByName := mrpkg.MergeNamedArgs(map[string]any{
 		"name": name,
 	})
@@ -200,12 +204,13 @@ func (imp *implUserHandler) Update(ctx context.Context, user *UserUpdate) error 
 	)
 
 	for _, splitSqlUpdate := range strings.Split(sqlUpdate.String(), ";") {
-		splitSqlUpdate = strings.TrimSpace(imp.Core.Rebind(splitSqlUpdate))
+		splitSqlUpdate = strings.TrimSpace(splitSqlUpdate)
 		if splitSqlUpdate == "" {
 			continue
 		}
 
 		countUpdate := strings.Count(splitSqlUpdate, "?")
+		splitSqlUpdate = imp.Core.Rebind(splitSqlUpdate)
 
 		startUpdate := time.Now()
 
@@ -274,10 +279,11 @@ func (imp *implUserHandler) UpdateName(ctx context.Context, id int64, name strin
 	})
 
 	for _, splitSqlUpdateName := range strings.Split(sqlUpdateName.String(), ";") {
-		splitSqlUpdateName = strings.TrimSpace(imp.Core.Rebind(splitSqlUpdateName))
+		splitSqlUpdateName = strings.TrimSpace(splitSqlUpdateName)
 		if splitSqlUpdateName == "" {
 			continue
 		}
+		splitSqlUpdateName = imp.Core.Rebind(splitSqlUpdateName)
 
 		startUpdateName := time.Now()
 

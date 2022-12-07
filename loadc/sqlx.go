@@ -25,7 +25,8 @@ const (
 
 	SqlxCmdInclude = "INCLUDE"
 
-	FeatureSqlxLog = "sqlx/log"
+	FeatureSqlxLog    = "sqlx/log"
+	FeatureSqlxRebind = "sqlx/rebind"
 )
 
 func genSqlx(_ *cobra.Command, _ []string) error {
