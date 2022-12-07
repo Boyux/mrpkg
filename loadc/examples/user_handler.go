@@ -28,6 +28,7 @@ func NewUserHandlerFromDB(core *sqlx.DB) UserHandler {
 }
 
 func NewUserHandlerFromCore(core interface {
+	Rebind(query string) string
 	Beginx() (*sqlx.Tx, error)
 	BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error)
 	PrepareNamed(query string) (*sqlx.NamedStmt, error)
@@ -47,6 +48,7 @@ func NewUserHandlerFromCore(core interface {
 type implUserHandler struct {
 	withTx bool
 	Core   interface {
+		Rebind(query string) string
 		Beginx() (*sqlx.Tx, error)
 		BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error)
 		PrepareNamed(query string) (*sqlx.NamedStmt, error)
@@ -86,7 +88,7 @@ func (imp *implUserHandler) Get(ctx context.Context, id int64) (*User, error) {
 		return v0Get, fmt.Errorf("error executing %s template: %w", strconv.Quote("Get"), errGet)
 	}
 
-	sqlQueryGet := strings.TrimSpace(sqlGet.String())
+	sqlQueryGet := strings.TrimSpace(imp.Core.Rebind(sqlGet.String()))
 	argsGet := mrpkg.MergeArgs(
 		id,
 	)
@@ -133,7 +135,7 @@ func (imp *implUserHandler) QueryByName(name string) ([]User, error) {
 		return v0QueryByName, fmt.Errorf("error executing %s template: %w", strconv.Quote("QueryByName"), errQueryByName)
 	}
 
-	sqlQueryQueryByName := strings.TrimSpace(sqlQueryByName.String())
+	sqlQueryQueryByName := strings.TrimSpace(imp.Core.Rebind(sqlQueryByName.String()))
 	argsQueryByName := mrpkg.MergeNamedArgs(map[string]any{
 		"name": name,
 	})
@@ -198,7 +200,7 @@ func (imp *implUserHandler) Update(ctx context.Context, user *UserUpdate) error 
 	)
 
 	for _, splitSqlUpdate := range strings.Split(sqlUpdate.String(), ";") {
-		splitSqlUpdate = strings.TrimSpace(splitSqlUpdate)
+		splitSqlUpdate = strings.TrimSpace(imp.Core.Rebind(splitSqlUpdate))
 		if splitSqlUpdate == "" {
 			continue
 		}
@@ -272,7 +274,7 @@ func (imp *implUserHandler) UpdateName(ctx context.Context, id int64, name strin
 	})
 
 	for _, splitSqlUpdateName := range strings.Split(sqlUpdateName.String(), ";") {
-		splitSqlUpdateName = strings.TrimSpace(splitSqlUpdateName)
+		splitSqlUpdateName = strings.TrimSpace(imp.Core.Rebind(splitSqlUpdateName))
 		if splitSqlUpdateName == "" {
 			continue
 		}

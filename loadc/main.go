@@ -38,7 +38,7 @@ var (
 
 var loadc = &cobra.Command{
 	Use:     "loadc",
-	Version: "v0.4.7",
+	Version: "v0.4.8",
 	Args: func(cmd *cobra.Command, args []string) error {
 		switch mode {
 		case ModeSql:

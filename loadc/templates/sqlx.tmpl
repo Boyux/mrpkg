@@ -33,6 +33,7 @@ Core: core,
 }
 
 func  New{{ $.Ident }}FromCore(core interface{
+Rebind(query string) string
 Beginx() (*sqlx.Tx, error)
 BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error)
 PrepareNamed(query string) (*sqlx.NamedStmt, error)
@@ -52,6 +53,7 @@ Core: core,
 type {{ $impName }} struct {
 withTx bool
 Core interface{
+Rebind(query string) string
 Beginx() (*sqlx.Tx, error)
 BeginTxx(ctx context.Context, opts *sql.TxOptions) (*sqlx.Tx, error)
 PrepareNamed(query string) (*sqlx.NamedStmt, error)
@@ -158,7 +160,7 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 
         {{ $splitSql := printf "splitSql%s" $method.Ident }}
         for _, {{ $splitSql }} := range strings.Split({{ $sql }}.String(), ";") {
-        {{ $splitSql }} = strings.TrimSpace({{ $splitSql }})
+        {{ $splitSql }} = strings.TrimSpace(imp.Core.Rebind({{ $splitSql }}))
         if {{ $splitSql }} == "" {
         continue
         }
@@ -220,7 +222,7 @@ SelectContext(ctx context.Context, dest interface{}, query string, args ...inter
 
     {{ if isQuery $method.SqlOperation }}
         {{ $sqlQuery := printf "sqlQuery%s" $method.Ident -}}
-        {{ $sqlQuery }} := strings.TrimSpace({{ $sql }}.String())
+        {{ $sqlQuery }} := strings.TrimSpace(imp.Core.Rebind({{ $sql }}.String()))
         {{- $args := printf "args%s" $method.Ident -}}
         {{ if hasFeature ($method.SqlFeatures) "NAMED" }}
             {{ $args }} := mrpkg.MergeNamedArgs(map[string]any{
