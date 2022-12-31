@@ -38,12 +38,13 @@ var (
 
 var loadc = &cobra.Command{
 	Use:     "loadc",
-	Version: "v0.5.2",
+	Version: "v0.5.3",
 	Args: func(cmd *cobra.Command, args []string) error {
 		switch mode {
 		case ModeSql:
 			return cobra.ExactArgs(1)(cmd, args)
 		case ModeApi, ModeSqlx:
+			fmt.Fprintf(os.Stderr, "mode %q is deprecated, use package %q instead", mode, "github.com/x5iu/defc")
 			return cobra.NoArgs(cmd, args)
 		default:
 			return nil
