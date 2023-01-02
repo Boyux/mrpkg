@@ -1,5 +1,3 @@
-//go:build scheduler
-
 package mrpkg
 
 import (
